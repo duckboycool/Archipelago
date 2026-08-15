@@ -64,9 +64,26 @@ jobs:
         pip install -r ci-requirements.txt
         python ModuleUpdate.py --yes --force --append "WebHostLib/requirements.txt"
         python Launcher.py --update_settings  # make sure host.yaml exists for tests
+
+    - name: "Determine modified worlds (pull_request)"
+      if: github.event_name == 'pull_request'
+      run: |
+        git fetch origin $BASE $HEAD
+        DIFF=$(git diff --dirstat=files,0 $BASE...$HEAD | sed -En 's/^[ 0-9.]+% worlds\/([^\/]+)\/$/\1/gmp')
+        echo "modified worlds:"
+        echo "$DIFF"
+        echo "AP_TEST_WORLDS=${DIFF//$'\n'/$','}" >> $GITHUB_ENV
+
+    - name: "Determine modified worlds (push)"
+      if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+      run: |
+        git fetch origin $BEFORE $AFTER
+        DIFF=$(git diff --dirstat=files,0 $BEFORE..$AFTER | sed -En 's/^[ 0-9.]+% worlds\/([^\/]+)\/$/\1/gmp')
+        echo "modified worlds:"
+        echo "$DIFF"
+        echo "AP_TEST_WORLDS=${DIFF//$'\n'/$','}" >> $GITHUB_ENV
+
     - name: Unittests
-      env:
-        AP_TEST_WORLDS: apquest,smz3
       run: |
         pytest -n auto
 
