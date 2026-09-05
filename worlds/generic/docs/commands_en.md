@@ -1,14 +1,14 @@
-# Helpful Commands
+# Archipelago Server and Client Commands
 
 Commands are split into two types: client commands and server commands. Client commands are commands which are executed
 by the client and do not affect the Archipelago remote session. Server commands are commands which are executed by the
 Archipelago server and affect the Archipelago session or otherwise provide feedback from the server.
 
-In clients which have their own commands the commands are typically prepended by a forward slash: `/`. 
+In clients which have their own commands the commands are typically prepended by a forward slash: `/`.
 
-Server commands are always submitted to the server prepended with an exclamation point: `!`. <br/>
+Server commands are always submitted to the server prepended with an exclamation point: `!`.
 
-# Server Commands
+## Server Commands
 
 Server commands may be executed by any client which allows for sending text chat to the Archipelago server. If your
 client does not allow for sending chat then you may connect to your game slot with the TextClient which comes with the
@@ -20,7 +20,8 @@ including the exclamation point.
 - `!license` Returns the software licensing information.
 - `!options` Returns the current server options, including password in plaintext.
 - `!players` Returns info about the currently connected and non-connected players.
-- `!status` Returns information about the connection status and check completion numbers for all players in the current room. <br /> (Optionally mention a Tag name and get information on who has that Tag. For example: !status DeathLink)
+- `!status` Returns information about the connection status and check completion numbers for all players in the current room.
+  (Optionally mention a Tag name and get information on who has that Tag. For example: !status DeathLink)
 
 
 ### Utilities
@@ -38,11 +39,13 @@ including the exclamation point.
 
 ### Hints
 - `!hint` Lists all hints relevant to your world, the number of points you have for hints, and how much a hint costs.
-- `!hint <item name>` Tells you the game world and location your item is in, uses points earned from completing locations.
-- `!hint_location <location>` Tells you what item is in a specific location, uses points earned from completing locations.
+- `!hint <item name>` Tells you the game world and location your item is in, uses points earned from completing
+  locations.
+- `!hint_location <location name>` Tells you what item is in a specific location, uses points earned from completing
+  locations.
 
 ### Collect/Release
-- `!collect` Grants you all the remaining items for your world by collecting them from all games. Typically used after 
+- `!collect` Grants you all the remaining items for your world by collecting them from all games. Typically used after
   goal completion.
 - `!release` Releases all items contained in your world to other worlds. Typically, done automatically by the server,
   but can be configured to allow/require manual usage of this command.
@@ -65,8 +68,9 @@ including the exclamation point.
 - `/countdown <number of seconds>` Starts a countdown sent to all players via text chat. Defaults to 10 seconds if no
   argument is provided.
 - `/option <option name> <option value>` Set a server option. For a list of options, use the `/options` command.
-- `/alias <player name> <alias name>` Assign a player an alias, allowing you to reference the player by the alias in commands.
-  `!alias <player name>` on its own will reset the alias to the player's original name.
+- `/alias <player name> <alias name>` Assign a player an alias, allowing you to reference the player by the alias in
+  commands.
+  `/alias <player name>` on its own will reset the alias to the player's original name.
 
 
 ### Collect/Release
@@ -81,9 +85,8 @@ including the exclamation point.
 - `/send_location <player name> <location name>` Send out the given location for the specified player as if the player checked it
 - `/hint <player name> <item or location name>` Send out a hint for the given item or location for the specified player.
 
-<br/> <br/>
 
-# Local Commands
+## Local Commands
 
 This a list of client commands which may be available to you through your Archipelago client. You can
 execute these commands in your client window.
@@ -103,7 +106,7 @@ The following commands are available in the clients that use the CommonClient, f
 - `/ready` Sends ready status to the server.
 - Typing anything that doesn't start with `/` will broadcast a message to all players.
 
-## SNIClient Only
+### SNIClient Only
 
 The following command is only available when using the SNIClient for SNES based games.
 
