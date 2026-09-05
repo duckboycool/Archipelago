@@ -20,22 +20,25 @@ including the exclamation point.
 - `!license` Returns the software licensing information.
 - `!options` Returns the current server options, including password in plaintext.
 - `!players` Returns info about the currently connected and non-connected players.
-- `!status` Returns information about the connection status and check completion numbers for all players in the current room.
-  (Optionally mention a Tag name and get information on who has that Tag. For example: !status DeathLink)
+- `!status [tag name]` Returns information about the connection status and check completion numbers for all players in
+  the current room. If included, returns information on who has the given tag. (e.g. `!status DeathLink`)
 
 
 ### Utilities
-- `!countdown <number of seconds>` Starts a countdown using the given seconds value. Useful for synchronizing starts.
+- `!countdown [number of seconds]` Starts a countdown using the given seconds value. Useful for synchronizing starts.
   Defaults to 10 seconds if no argument is provided.
-- `!alias <alias>` Sets your alias, which allows you to use commands with the alias rather than your provided name.
+- `!alias [alias]` Sets your alias, which allows you to use commands with the alias rather than your provided name.
   `!alias` on its own will reset the alias to the player's original name.
 - `!admin <command>` Executes a command as if you typed it into the server console. Remote administration must be
   enabled.
 
 ### Information
 - `!remaining` Lists the items remaining in your game, but not where they are or who they go to.
-- `!missing` Lists the location checks you are missing from the server's perspective.
-- `!checked` Lists all the location checks you've done from the server's perspective.
+- `!missing [filter text]` Lists the location checks you are missing from the server's perspective. If filter text is
+  given, filters to location names containing the text, or instead to locations in a location group if the filter
+  matches one's name.
+- `!checked [filter text]` Lists all the location checks you've done from the server's perspective. Filters as with
+  `!missing` if given.
 
 ### Hints
 - `!hint` Lists all hints relevant to your world, the number of points you have for hints, and how much a hint costs.
@@ -54,7 +57,7 @@ including the exclamation point.
 - `!getitem <item>` Cheats an item to the currently connected slot, if it is enabled in the server.
 
 
-## Host only (on Archipelago.gg or in your server console)
+## Host commands (on room page or in your server console)
 
 ### General
 - `/help` Returns a list of commands available in the console.
@@ -65,12 +68,11 @@ including the exclamation point.
 - `/exit` Shutdown the server
 
 ### Utilities
-- `/countdown <number of seconds>` Starts a countdown sent to all players via text chat. Defaults to 10 seconds if no
+- `/countdown [number of seconds]` Starts a countdown sent to all players via text chat. Defaults to 10 seconds if no
   argument is provided.
 - `/option <option name> <option value>` Set a server option. For a list of options, use the `/options` command.
-- `/alias <player name> <alias name>` Assign a player an alias, allowing you to reference the player by the alias in
-  commands.
-  `/alias <player name>` on its own will reset the alias to the player's original name.
+- `/alias <player name> [alias name]` Assign a player an alias, allowing you to reference the player by the alias in
+  commands. `/alias <player name>` on its own will reset the alias to the player's original name.
 
 
 ### Collect/Release
@@ -83,7 +85,8 @@ including the exclamation point.
 - `/send <player name> <item name>` Grants the given player the specified item.
 - `/send_multiple <amount> <player name> <item name>` Grants the given player the stated amount of the specified item.
 - `/send_location <player name> <location name>` Send out the given location for the specified player as if the player checked it
-- `/hint <player name> <item or location name>` Send out a hint for the given item or location for the specified player.
+- `/hint <player name> <item name>` Send out a hint for the given item for the specified player.
+- `/hint_location <player name> <location name>` Send out a hint for the given location for the specified player.
 
 
 ## Local Commands
@@ -93,12 +96,14 @@ execute these commands in your client window.
 
 The following commands are available in the clients that use the CommonClient, for example: TextClient, SNIClient, etc.
 
-- `/connect <address:port>` Connect to the multiworld server at the given address.
+- `/connect [address:port]` Connect to the multiworld server at the given address. Reconnects to current address if
+  no value is given and one is already present.
 - `/disconnect` Disconnects you from your current session.
 - `/help` Returns a list of available commands.
 - `/license` Returns the software licensing information.
 - `/received` Displays all the items you have received from all players, including yourself.
-- `/missing` Displays all the locations along with their current status (checked/missing).
+- `/missing [filter text]` Displays all the locations along with their current status (checked/missing). If filter text
+  is given, filters to location names containing the text.
 - `/items` Lists all the item names for the current game.
 - `/item_groups` Lists all the item group names for the current game.
 - `/locations` Lists all the location names for the current game.
