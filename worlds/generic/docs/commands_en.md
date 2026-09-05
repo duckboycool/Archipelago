@@ -115,6 +115,8 @@ The following commands are available in the clients that use the CommonClient, f
 
 The following command is only available when using the SNIClient for SNES based games.
 
-- `/snes` Attempts to connect to your SNES device via SNI.
+- `/snes [options]` Attempts to connect to your SNES device via SNI. Can include device number and address to connect to
+  if needed.
 - `/snes_close` Closes the current SNES connection.
-- `/slow_mode` Toggles on or off slow mode, which limits the rate in which you receive items.
+- `/slow_mode [true/false]` Turns on or off slow mode, which limits the rate in which you receive items. If no value is
+  given, it will toggle the currently set value.
