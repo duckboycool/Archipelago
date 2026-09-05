@@ -4,14 +4,15 @@ Commands are split into two types: client commands and server commands. Client c
 by the client and do not affect the Archipelago remote session. Server commands are commands which are executed by the
 Archipelago server and affect the Archipelago session or otherwise provide feedback from the server.
 
-In clients which have their own commands the commands are typically prepended by a forward slash: `/`.
+When executing commands locally like for server commands executed from the server console or in most clients which have
+their own commands, the commands are prepended by a forward slash: `/`.
 
-Server commands are always submitted to the server prepended with an exclamation point: `!`.
+When executing server commands remotely from a client, they are prepended with an exclamation point: `!`.
 
 ## Server Commands
 
 Server commands may be executed by any client which allows for sending text chat to the Archipelago server. If your
-client does not allow for sending chat then you may connect to your game slot with the TextClient which comes with the
+client does not allow for sending chat then you may connect to your game slot with the Text Client which comes with the
 Archipelago installation. In order to execute the command you need to merely send a text message with the command,
 including the exclamation point.
 
@@ -57,7 +58,7 @@ including the exclamation point.
 - `!getitem <item>` Cheats an item to the currently connected slot, if it is enabled in the server.
 
 
-## Host commands (on room page or in your server console)
+## Host Commands (on room page or in your server console)
 
 ### General
 - `/help` Returns a list of commands available in the console.
@@ -94,7 +95,7 @@ including the exclamation point.
 This a list of client commands which may be available to you through your Archipelago client. You can
 execute these commands in your client window.
 
-The following commands are available in the clients that use the CommonClient, for example: TextClient, SNIClient, etc.
+The following commands are available in the Text Client, SNI Client, BizHawk Client, or others based on CommonClient.
 
 - `/connect [address:port]` Connect to the multiworld server at the given address. Reconnects to current address if
   no value is given and one is already present.
@@ -111,9 +112,9 @@ The following commands are available in the clients that use the CommonClient, f
 - `/ready` Sends ready status to the server.
 - Typing anything that doesn't start with `/` will broadcast a message to all players.
 
-### SNIClient Only
+### SNI Client Only
 
-The following command is only available when using the SNIClient for SNES based games.
+The following command is only available when using the SNI Client for SNES based games.
 
 - `/snes [options]` Attempts to connect to your SNES device via SNI. Can include device number and address to connect to
   if needed.
