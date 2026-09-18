@@ -8,3 +8,5 @@ from worlds._bizhawk.context import launch
 
 if __name__ == "__main__":
     launch(*sys.argv[1:])
+
+silly: str = 3
