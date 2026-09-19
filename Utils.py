@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import json
+import pathlib
 import shlex
 import typing
 import builtins
@@ -37,7 +38,6 @@ except ImportError:
 
 if typing.TYPE_CHECKING:
     import tkinter
-    import pathlib
     from BaseClasses import Region
     import multiprocessing
 
