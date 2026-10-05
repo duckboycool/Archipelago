@@ -506,8 +506,7 @@ class ByValue:
     Mixin for enums to pickle value instead of name (restores pre-3.11 behavior). Use as left-most parent.
     See https://github.com/python/cpython/pull/26658 for why this exists.
     """
-    def __reduce_ex__(self, prot):
-        return self.__class__, (self._value_, )
+    pass
 
 
 class KeyedDefaultDict(collections.defaultdict):
