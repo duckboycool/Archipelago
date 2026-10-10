@@ -376,11 +376,11 @@ def main(args, seed=None, baked_server_options: dict[str, object] | None = None)
 
         if args.spoiler > 1:
             logger.info("Calculating playthrough. (May be cancelled by pressing Ctrl-C.)")
-            try:
-                # Playthrough calculation intermittently messes with precollected items, so if cancelled mid-way, it may
-                # need to be restored
-                precollected_copy = {slot: val.copy() for slot, val in multiworld.precollected_items.items()}
 
+            # Playthrough calculation intermittently messes with precollected items, so if cancelled mid-way, it may
+            # need to be restored
+            precollected_copy = {slot: val.copy() for slot, val in multiworld.precollected_items.items()}
+            try:
                 multiworld.spoiler.create_playthrough(create_paths=args.spoiler > 2)
             except KeyboardInterrupt:
                 logger.info("Cancelled playthrough calculation. Press Ctrl-C again to exit generation.")
