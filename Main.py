@@ -375,7 +375,7 @@ def main(args, seed=None, baked_server_options: dict[str, object] | None = None)
                 future.result()
 
         if args.spoiler > 1:
-            logger.info("Calculating playthrough.")
+            logger.info("Calculating playthrough. (May be cancelled by pressing Ctrl-C.)")
             try:
                 # Playthrough calculation intermittently messes with precollected items, so if cancelled mid-way, it may
                 # need to be restored
