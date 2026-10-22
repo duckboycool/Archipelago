@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-import typing
 import enum
+import shlex
+import typing
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from json import JSONEncoder, JSONDecoder
 
 if typing.TYPE_CHECKING:
@@ -260,7 +262,7 @@ class JSONtoTextParser(metaclass=HandlerMeta):
         "black": "000000",
         "red": "EE0000",
         "green": "00FF7F",
-        "yellow": "FAFAD2",
+        "yellow": "FAFA40",
         "blue": "6495ED",
         "magenta": "EE00EE",
         "cyan": "00EEEE",
@@ -367,6 +369,117 @@ def add_json_item(parts: list, item_id: int, player: int = 0, item_flags: int = 
 
 def add_json_location(parts: list, location_id: int, player: int = 0, **kwargs) -> None:
     parts.append({"text": str(location_id), "player": player, "type": JSONTypes.location_id, **kwargs})
+
+
+def add_json_color(parts: list, text: typing.Any, color: str, **kwargs) -> None:
+    parts.append({"text": str(text), "type": "color", "color": color, **kwargs})
+
+
+class CommandType(enum.IntEnum):
+    server_console = 0
+    client_connected = 1
+    client_always = 2
+
+
+@dataclass
+class CommandData:
+    command: tuple[str]
+    arg_types: Iterable[str | None]  # Specifies color, or special value of "$int" for an integer
+    raw: bool
+    command_type: CommandType
+    required_tags: frozenset[str] = frozenset()
+
+
+def _extract_matching_runs(text: str, args: list[str]) -> list[list[str]]:
+    # Annoyingly, shlex does not seem to provide a way to give information about the removed whitespace or escape chars,
+    # so run a comparison to the original text to extract them
+    subpart_list = [[] for _ in range(len(args))]
+    plain_index = 0
+    split_index = 0
+    tok_start = 0  # text[tok_start:plain_index] represents the current token being matched
+    cur_arg = 0
+    while plain_index < len(text):
+        if split_index >= len(args[cur_arg]):
+            # Hit end of arg, push token. Empty args can give a whitespace only token here
+            subpart_list[cur_arg].append((text[tok_start:plain_index], args[cur_arg] != ""))
+
+            # Check for any non-matching chars up until next whitespace
+            tok_start = plain_index
+            while not text[plain_index] in " \t\r\n":  # Default shlex whitespace
+                plain_index += 1
+                if plain_index == len(text):
+                    break
+            if plain_index > tok_start:
+                subpart_list[cur_arg].append((text[tok_start:plain_index], False))
+
+            tok_start = plain_index
+            cur_arg += 1
+            split_index = 0
+            # Now done after processing
+            if plain_index == len(text) or cur_arg == len(args):
+                break
+
+        if split_index >= len(args[cur_arg]) or text[plain_index] != args[cur_arg][split_index]:
+            # Hit a non-matching part that should be grayed out, push current token and parse rest of non-matching part
+            if plain_index > tok_start:
+                subpart_list[cur_arg].append((text[tok_start:plain_index], True))
+
+            tok_start = plain_index
+            while split_index < len(args[cur_arg]) and text[plain_index] != args[cur_arg][split_index]:
+                plain_index += 1
+            if plain_index > tok_start:
+                subpart_list[cur_arg].append((text[tok_start:plain_index], False))
+            tok_start = plain_index
+
+        split_index += 1
+        plain_index += 1
+    # Check for if there's a final token to be pushed
+    if plain_index > tok_start:
+        subpart_list[-1].append((text[tok_start:plain_index], True))
+
+    return subpart_list
+
+
+def colorize_input(text: str, client: bool = True) -> list[JSONMessagePart]:
+    try:
+        args = shlex.split(text)
+    except ValueError:
+        args = text.split()
+
+    if not args:
+        return []
+
+    parts = []
+
+    form, raw = COMMAND_FORMS.get(args[0], ((), False))
+
+    if not form:
+        add_json_text(parts, text)
+        return parts
+
+    if raw:
+        first_split = text.split(maxsplit=1)
+        if len(first_split) > 1:
+            add_json_color(parts, text[:-len(first_split[1])], "orange")
+
+            if client and args[0] == "!admin":
+                parts.extend(colorize_input(first_split[1], client=False))
+            else:
+                add_json_color(parts, first_split[1], form[1])
+        else:
+            add_json_color(parts, text, "orange")
+        return parts
+
+    subpart_list = _extract_matching_runs(text, args)
+
+    for i, subparts in enumerate(subpart_list):
+        if i < len(form):
+            for (subpart, highlight) in subparts:
+                add_json_color(parts, subpart, form[i] if highlight else f"{form[i]}_dark")
+        else:
+            add_json_color(parts, "".join(subpart for subpart, _ in subparts), "red")
+
+    return parts
 
 
 status_names: typing.Dict[HintStatus, str] = {
