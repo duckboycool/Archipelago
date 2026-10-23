@@ -342,6 +342,8 @@ class CommonContext:
     """Seed name that will be validated on opening a socket if present"""
     server_seed_name: str | None
     """Actual seed_name reported by the server in RoomInfo"""
+    server_tags: set[str] | None
+    """Tags reported by the server in RoomInfo"""
     connected_identity: tuple[str, int, int] | None
     """(server_seed_name, team, slot) of the last successful connection, used to detect a session switch"""
 
@@ -405,6 +407,7 @@ class CommonContext:
         self.auth = None
         self.seed_name = None
         self.server_seed_name = None
+        self.server_tags = None
         self.connected_identity = None
         # decouple from the class-level mutable set so tag changes (e.g. DeathLink) don't leak across instances
         self.tags = set(type(self).tags)
@@ -471,6 +474,7 @@ class CommonContext:
         self.locations_info = {}
         self.pending_locations = set()
         self.server_seed_name = None
+        self.server_tags = None
         self.server_version = Version(0, 0, 0)
         self.generator_version = Version(0, 0, 0)
         self.server = None
@@ -954,6 +958,7 @@ async def process_server_cmd(ctx: CommonContext, args: dict):
         raise
     if cmd == 'RoomInfo':
         ctx.server_seed_name = args["seed_name"]
+        ctx.server_tags = args["tags"]
         if ctx.seed_name and ctx.seed_name != args["seed_name"]:
             msg = "The server is running a different multiworld than your client is. (invalid seed_name)"
             logger.info(msg, extra={'compact_gui': True})
@@ -1166,7 +1171,7 @@ async def process_server_cmd(ctx: CommonContext, args: dict):
 async def console_loop(ctx: CommonContext):
     commandprocessor = ctx.command_processor(ctx)
     queue = asyncio.Queue()
-    input_console(sys.stdin, queue)
+    input_console(sys.stdin, queue, ctx)
     while not ctx.exit_event.is_set():
         try:
             input_text = await queue.get()

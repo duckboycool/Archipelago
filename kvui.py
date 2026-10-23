@@ -777,6 +777,7 @@ class MarkupTextField(ResizableTextField):
             Cache_append('textinput.label', cid, texture)
         return texture
 
+
 class CommandPromptTextInput(MarkupTextField):
     MAXIMUM_HISTORY_MESSAGES = 50
 
@@ -792,7 +793,8 @@ class CommandPromptTextInput(MarkupTextField):
             self._command_history.appendleft(new_entry)
 
     def markup_text(self, text) -> str:
-        return self._parser(colorize_input(text))
+        ctx = MDApp.get_running_app().ctx
+        return self._parser(colorize_input(text, ctx))
 
     def keyboard_on_key_down(
         self,
@@ -1143,6 +1145,7 @@ class GameManager(ThemedApp):
             self.server_connect_bar.readonly = False
             self.title = self.base_title + " " + Utils.__version__
             self.progressbar.value = 0
+        self.textinput._trigger_refresh_text()
 
     def command_button_action(self, button):
         if self.ctx.server:
@@ -1499,6 +1502,12 @@ class KivyJSONtoTextParser(JSONtoTextParser):
             if color_code:
                 node["text"] = f"[color={color_code}]{node['text']}[/color]"
                 return self._handle_text(node)
+            elif color == "bold":
+                node["text"] = f"[b]{node['text']}[/b]"
+            elif color == "underline":
+                node["text"] = f"[u]{node['text']}[/u]"
+            elif color == "strikethrough":
+                node["text"] = f"[s]{node['text']}[/s]"
         return self._handle_text(node)
 
     def _handle_text(self, node: JSONMessagePart):

@@ -4,12 +4,14 @@ import enum
 import shlex
 import typing
 import warnings
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from itertools import chain, repeat
 from json import JSONEncoder, JSONDecoder
 
 if typing.TYPE_CHECKING:
     from websockets import WebSocketServerProtocol as ServerConnection
+    from CommonClient import CommonContext
 
 from Utils import ByValue, Version
 
@@ -371,8 +373,11 @@ def add_json_location(parts: list, location_id: int, player: int = 0, **kwargs) 
     parts.append({"text": str(location_id), "player": player, "type": JSONTypes.location_id, **kwargs})
 
 
-def add_json_color(parts: list, text: typing.Any, color: str, **kwargs) -> None:
-    parts.append({"text": str(text), "type": "color", "color": color, **kwargs})
+def add_json_color(parts: list, text: typing.Any, color: str | None, **kwargs) -> None:
+    if color:
+        parts.append({"text": str(text), "type": "color", "color": color, **kwargs})
+    else:
+        add_json_text(parts, text, **kwargs)
 
 
 class CommandType(enum.IntEnum):
@@ -383,10 +388,12 @@ class CommandType(enum.IntEnum):
 
 @dataclass
 class CommandData:
-    command: tuple[str]
-    arg_types: Iterable[str | None]  # Specifies color, or special value of "$int" for an integer
+    command: str
+    arg_types: Sequence[str | None]  # Specifies color, or special value of "$int" for an integer
     raw: bool
     command_type: CommandType
+    vararg_type: str = "underline;red"  # Type for after all arg_types are exhausted. Defaults signifies an error
+    starting_server_version: Version = Version(0, 6, 0)
     required_tags: frozenset[str] = frozenset()
 
 
@@ -440,7 +447,7 @@ def _extract_matching_runs(text: str, args: list[str]) -> list[list[str]]:
     return subpart_list
 
 
-def colorize_input(text: str, client: bool = True) -> list[JSONMessagePart]:
+def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMessagePart]:
     try:
         args = shlex.split(text)
     except ValueError:
@@ -451,33 +458,52 @@ def colorize_input(text: str, client: bool = True) -> list[JSONMessagePart]:
 
     parts = []
 
-    form, raw = COMMAND_FORMS.get(args[0], ((), False))
+    def command_form_matches(form: CommandData):
+        if form.command != args[0]:
+            return False
+        # Check if command type is usable here
+        if ctx:
+            if form.command_type == CommandType.server_console:
+                return False
+            if form.command_type == CommandType.client_connected:
+                if not (ctx.server_version and ctx.server_tags):
+                    return False
+                # Check server compatibility
+                if form.starting_server_version > ctx.server_version:
+                    return False
+                if not form.required_tags.issubset(ctx.server_tags):
+                    return False
 
-    if not form:
+        else:
+            if form.command_type != CommandType.server_console:
+                return False
+
+        return True
+
+    data = next((form for form in COMMAND_FORMS if command_form_matches(form)), None)
+
+    if not data:
         add_json_text(parts, text)
         return parts
 
-    if raw:
+    if data.raw:
         first_split = text.split(maxsplit=1)
         if len(first_split) > 1:
             add_json_color(parts, text[:-len(first_split[1])], "orange")
 
-            if client and args[0] == "!admin":
-                parts.extend(colorize_input(first_split[1], client=False))
+            if ctx and args[0] == "!admin":
+                parts.extend(colorize_input(first_split[1]))  # Strip context so it's treated as from server
             else:
-                add_json_color(parts, first_split[1], form[1])
+                add_json_color(parts, first_split[1], data.arg_types[0] if data.arg_types else data.vararg_type)
         else:
             add_json_color(parts, text, "orange")
         return parts
 
     subpart_list = _extract_matching_runs(text, args)
 
-    for i, subparts in enumerate(subpart_list):
-        if i < len(form):
-            for (subpart, highlight) in subparts:
-                add_json_color(parts, subpart, form[i] if highlight else f"{form[i]}_dark")
-        else:
-            add_json_color(parts, "".join(subpart for subpart, _ in subparts), "red")
+    for subparts, arg_type in zip(subpart_list, chain(("orange",), data.arg_types, repeat(data.vararg_type))):
+        for (subpart, highlight) in subparts:
+            add_json_color(parts, subpart, arg_type if highlight else f"{arg_type}_dark")
 
     return parts
 

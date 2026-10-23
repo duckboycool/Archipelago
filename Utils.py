@@ -38,9 +38,10 @@ except ImportError:
     from yaml import Loader as UnsafeLoader, SafeLoader, Dumper
 
 if typing.TYPE_CHECKING:
+    import multiprocessing
     import tkinter
     from BaseClasses import Region
-    import multiprocessing
+    from CommonClient import CommonContext
 
 
 def tuplize_version(version: str) -> Version:
@@ -640,7 +641,7 @@ def stream_input(stream: typing.TextIO, queue: "asyncio.Queue[str]"):
     return thread
 
 
-def input_console(stream: typing.TextIO, queue: asyncio.Queue[str]):
+def input_console(stream: typing.TextIO, queue: asyncio.Queue[str], ctx: CommonContext | None = None):
     try:
         import _colorize
         try:
@@ -653,12 +654,12 @@ def input_console(stream: typing.TextIO, queue: asyncio.Queue[str]):
 
         if _colorize.can_colorize():
             from NetUtils import JSONtoTextParser, colorize_input
-            parser = JSONtoTextParser(None)
+            parser = JSONtoTextParser(ctx)
             class ColorizeReader(ReadlineAlikeReader):
                 def calc_screen(self) -> list[str]:
                     # XXX: This method will break on python 3.15
                     super(ColorizeReader, self).calc_screen()
-                    return [f"{self.ps1}{parser(colorize_input(''.join(self.buffer)))}"]
+                    return [f"{self.ps1}{parser(colorize_input(''.join(self.buffer), ctx))}"]
             Reader = ColorizeReader
         else:
             Reader = ReadlineAlikeReader
