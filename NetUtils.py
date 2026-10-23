@@ -458,7 +458,7 @@ COMMAND_FORMS: tuple[CommandData, ...] = (
     CommandData("/ready", (), False, CommandType.client_always),
 
     # Customserver-specific command
-    CommandData("!video", (None, None), False, CommandType.client_connected),
+    CommandData("!video", (None, None), False, CommandType.client_connected, required_tags=frozenset({"WebHost"})),
 )
 """
 List of recognized commands and metadata for highlighting.
