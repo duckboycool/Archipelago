@@ -17,6 +17,7 @@ import collections
 import importlib
 import logging
 import warnings
+import traceback
 import pathlib
 
 from argparse import Namespace
@@ -637,6 +638,52 @@ def stream_input(stream: typing.TextIO, queue: "asyncio.Queue[str]"):
     thread = Thread(target=queuer, name=f"Stream handler for {stream.name}", daemon=True)
     thread.start()
     return thread
+
+
+def input_console(stream: typing.TextIO, queue: asyncio.Queue[str]):
+    try:
+        import _colorize
+        try:
+            from _pyrepl.windows_console import WindowsConsole as Console
+        except ModuleNotFoundError:
+            from _pyrepl.unix_console import UnixConsole as Console
+        from _pyrepl.readline import ReadlineAlikeReader, ReadlineConfig
+
+        console = Console(encoding=sys.getdefaultencoding() or "latin1")
+
+        if _colorize.can_colorize():
+            from NetUtils import JSONtoTextParser, colorize_input
+            parser = JSONtoTextParser(None)
+            class ColorizeReader(ReadlineAlikeReader):
+                def calc_screen(self) -> list[str]:
+                    # XXX: This method will break on python 3.15
+                    super(ColorizeReader, self).calc_screen()
+                    return [f"{self.ps1}{parser(colorize_input(''.join(self.buffer)))}"]
+            Reader = ColorizeReader
+        else:
+            Reader = ReadlineAlikeReader
+
+        def queuer():
+            # Maybe could add a prompt here if there's a good way to make it so other lines don't go over it
+            reader = Reader(console=console, config=ReadlineConfig(), ps1="", ps2="", ps3="", ps4="")
+
+            reader.prepare()
+            try:
+                while True:
+                    command = reader.readline()
+                    queue.put_nowait(command)
+            finally:
+                reader.restore()
+
+        from threading import Thread
+        thread = Thread(target=queuer, name=f"Interactive stream handler for {stream.name}", daemon=True)
+        thread.start()
+        return thread
+
+    except Exception as e:
+        logging.info("Could not load interactive console, falling back to stream_input")
+        logging.debug(traceback.format_exc())
+        return stream_input(stream, queue)
 
 
 def tkinter_center_window(window: "tkinter.Tk") -> None:

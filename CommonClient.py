@@ -9,7 +9,6 @@ import sys
 import typing
 import time
 import functools
-import warnings
 
 import ModuleUpdate
 ModuleUpdate.update()
@@ -24,8 +23,8 @@ if __name__ == "__main__":
 from MultiServer import CommandProcessor, mark_raw
 from NetUtils import (Endpoint, decode, NetworkItem, encode, JSONtoTextParser, ClientStatus, Permission, NetworkSlot,
                       RawJSONtoTextParser, add_json_text, add_json_location, add_json_item, JSONTypes, HintStatus, SlotType)
-from Utils import gui_enabled, Version, stream_input, async_start
-from worlds import network_data_package, AutoWorldRegister
+from Utils import gui_enabled, Version, async_start, input_console
+from worlds import network_data_package
 import os
 import ssl
 
@@ -1167,7 +1166,7 @@ async def process_server_cmd(ctx: CommonContext, args: dict):
 async def console_loop(ctx: CommonContext):
     commandprocessor = ctx.command_processor(ctx)
     queue = asyncio.Queue()
-    stream_input(sys.stdin, queue)
+    input_console(sys.stdin, queue)
     while not ctx.exit_event.is_set():
         try:
             input_text = await queue.get()

@@ -2676,7 +2676,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
 async def console(ctx: Context):
     import sys
     queue = asyncio.Queue()
-    worker = Utils.stream_input(sys.stdin, queue)
+    worker = Utils.input_console(sys.stdin, queue)
     while not ctx.exit_event.is_set():
         try:
             # I don't get why this while loop is needed. Works fine without it on clients,
