@@ -6,6 +6,7 @@ import typing
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import inspect
 from itertools import chain, repeat
 from json import JSONEncoder, JSONDecoder
 
@@ -394,13 +395,13 @@ class CommandType(enum.IntEnum):
     client_always = 2
 
 
-@dataclass
+@dataclass(frozen=True)
 class CommandData:
     command: str
     arg_types: Sequence[str | None]  # Specifies type for colors, or special value of "$int" for an integer
     raw: bool
     command_type: CommandType
-    vararg_type: str = "error"  # Type for after all arg_types are exhausted
+    vararg_type: str | None = "error"  # Type for after all arg_types are exhausted
     starting_server_version: Version = Version(0, 6, 0)
     required_tags: frozenset[str] = frozenset({"AP"})
 
@@ -467,7 +468,7 @@ Commands with mutliple version variants should be stored from newest to oldest.
 """
 
 
-@dataclass
+@dataclass(frozen=True)
 class OptionData:
     option: str
     val_type: str | None | tuple[str, ...]  # Either a single value like arg_type or a tuple listing possible values
@@ -591,6 +592,26 @@ def colorize_input(text: str, ctx: CommonContext | None = None,
         return True
 
     data = next((form for form in COMMAND_FORMS if command_form_matches(form)), None)
+
+    # Try searching CommandProcessor for additional defined commands there
+    if not data and ctx:
+        for name, func in ctx.command_processor.commands.items():
+            command = ctx.command_processor.marker + name
+            raw = getattr(func, "raw_text", False)
+            if command == args[0]:
+                try:
+                    sig = inspect.signature(func)
+
+                    pos_types = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    pos_args = len([param for param in sig.parameters.values() if param.kind in pos_types]) - 1
+                    vararg = any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in sig.parameters.values())
+
+                    data = CommandData(
+                        command, (None,) * pos_args, raw, CommandType.client_always,
+                        vararg_type="error" if not vararg else None
+                    )
+                except ValueError:
+                    data = CommandData(command, (), raw, CommandType.client_always, vararg_type=None)
 
     if not data:
         add_json_text(parts, text)
