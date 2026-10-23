@@ -2336,7 +2336,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
     def output(self, text: str):
         if self.client:
             self.ctx.notify_client(self.client, text, {"type": "AdminCommandResult"})
-        super(ServerCommandProcessor, self).output(text)
+        self.ctx.logger.info(text)
 
     def default(self, raw: str):
         self.ctx.broadcast_text_all('[Server]: ' + raw, {"type": "ServerChat", "message": raw})
