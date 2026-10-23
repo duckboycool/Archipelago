@@ -288,6 +288,10 @@ class JSONtoTextParser(metaclass=HandlerMeta):
 
     def _handle_color(self, node: JSONMessagePart):
         codes = node["color"].split(";")
+        for i, code in enumerate(codes):
+            if code.endswith("_dark"):
+                codes[i] = "gray"
+
         buffer = "".join(color_code(code) for code in codes if code in color_codes)
         return buffer + self._handle_text(node) + color_code("reset")
 
@@ -347,10 +351,14 @@ class RawJSONtoTextParser(JSONtoTextParser):
         return self._handle_text(node)
 
 
-color_codes = {'reset': 0, 'bold': 1, 'underline': 4, 'black': 30, 'red': 31, 'green': 32, 'yellow': 33, 'blue': 34,
-               'magenta': 35, 'cyan': 36, 'white': 37, 'black_bg': 40, 'red_bg': 41, 'green_bg': 42, 'yellow_bg': 43,
-               'blue_bg': 44, 'magenta_bg': 45, 'cyan_bg': 46, 'white_bg': 47,
-               'plum': 35, 'slateblue': 34, 'salmon': 31,}  # convert ui colors to terminal colors
+color_codes: dict[str, str] = {
+    "reset": "0", "bold": "1", "underline": "4", "black": "30", "red": "31", "green": "32", "yellow": "33",
+    "blue": "34", "magenta": "35", "cyan": "36", "white": "37", "black_bg": "40", "red_bg": "41", "green_bg": "42",
+    "yellow_bg": "43", "blue_bg": "44", "magenta_bg": "45", "cyan_bg": "46", "white_bg": "47",
+    # convert ui colors to terminal colors
+    "plum": "38;5;147", "slateblue": "38;5;68", "orange": "38;5;208", "salmon": "38;5;210",
+    "gray": "38;5;241",  # for grayed out text
+}
 
 
 def color_code(*args):
