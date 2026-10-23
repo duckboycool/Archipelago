@@ -574,11 +574,14 @@ def init_logging(name: str, loglevel: typing.Union[str, int] = logging.INFO,
     file_handler.addFilter(Filter("NoCarriageReturn", lambda record: '\r' not in record.getMessage()))
     root_logger.addHandler(file_handler)
     if sys.stdout:
-        formatter = logging.Formatter(fmt='[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        line_clear = "\r\033[2K"
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.addFilter(Filter("NoFile", lambda record: not getattr(record, "NoStream", False)))
         if add_timestamp:
+            formatter = logging.Formatter(fmt=line_clear + "[%(asctime)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
             stream_handler.setFormatter(formatter)
+        else:
+            stream_handler.setFormatter(logging.Formatter(fmt=line_clear + "%(message)s"))
         root_logger.addHandler(stream_handler)
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -653,20 +656,19 @@ def input_console(stream: typing.TextIO, queue: asyncio.Queue[str], ctx: CommonC
         console = Console(encoding=sys.getdefaultencoding() or "latin1")
 
         if _colorize.can_colorize():
-            from NetUtils import JSONtoTextParser, colorize_input
+            from NetUtils import JSONtoTextParser, colorize_input, color_code
             parser = JSONtoTextParser(ctx)
             class ColorizeReader(ReadlineAlikeReader):
                 def calc_screen(self) -> list[str]:
                     # XXX: This method will break on python 3.15
                     super(ColorizeReader, self).calc_screen()
-                    return [f"{self.ps1}{parser(colorize_input(''.join(self.buffer), ctx))}"]
+                    return [f"{color_code('reset')}{self.ps1}{parser(colorize_input(''.join(self.buffer), ctx))}"]
             Reader = ColorizeReader
         else:
             Reader = ReadlineAlikeReader
 
         def queuer():
-            # Maybe could add a prompt here if there's a good way to make it so other lines don't go over it
-            reader = Reader(console=console, config=ReadlineConfig(), ps1="", ps2="", ps3="", ps4="")
+            reader = Reader(console=console, config=ReadlineConfig(), ps1="> ", ps2="", ps3="", ps4="")
 
             reader.prepare()
             try:
