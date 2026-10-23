@@ -402,7 +402,7 @@ class CommandData:
     command_type: CommandType
     vararg_type: str = "error"  # Type for after all arg_types are exhausted
     starting_server_version: Version = Version(0, 6, 0)
-    required_tags: frozenset[str] = frozenset()
+    required_tags: frozenset[str] = frozenset({"AP"})
 
 COMMAND_FORMS: tuple[CommandData, ...] = (
     CommandData("!help", (), False, CommandType.client_connected),
@@ -441,7 +441,8 @@ COMMAND_FORMS: tuple[CommandData, ...] = (
     CommandData("/send_multiple", ("$int", "player"), True, CommandType.server_console, vararg_type="item"),
     CommandData("/hint", ("player",), False, CommandType.server_console, vararg_type="item"),
     CommandData("/hint_location", ("player",), False, CommandType.server_console, vararg_type="location"),
-    CommandData("/option", ("option", None), False, CommandType.server_console, vararg_type="item"),
+    # Has special handling of available options
+    CommandData("/option", ("command", None), False, CommandType.server_console),
     CommandData("/datastore", (), False, CommandType.server_console),
 
     CommandData("/help", (), False, CommandType.client_always),
@@ -464,6 +465,26 @@ COMMAND_FORMS: tuple[CommandData, ...] = (
 List of recognized commands and metadata for highlighting.
 Commands with mutliple version variants should be stored from newest to oldest.
 """
+
+
+@dataclass
+class OptionData:
+    option: str
+    val_type: str | None | tuple[str, ...]  # Either a single value like arg_type or a tuple listing possible values
+    starting_server_version: Version = Version(0, 6, 0)
+
+SERVER_OPTIONS = (
+    OptionData("hint_cost", "$int"),
+    OptionData("location_check_points", "$int"),
+    OptionData("server_password", None),
+    OptionData("password", None),
+    OptionData("release_mode", ("disabled", "enabled", "auto", "auto_enabled", "goal")),
+    OptionData("remaining_mode", ("disabled", "enabled", "goal")),
+    OptionData("collect_mode", ("disabled", "enabled", "auto", "auto_enabled", "goal")),
+    OptionData("countdown_mode", ("disabled", "enabled", "auto")),
+    OptionData("item_cheat", None),
+    OptionData("compatibility", "$int"),
+)
 
 
 def _extract_matching_runs(text: str, args: list[str]) -> list[list[str]]:
@@ -522,16 +543,20 @@ def get_arg_type_color(arg_type: str | None, arg_val: str = "") -> str | None:
             int(arg_val)
             return None
         except ValueError:
-            return ERROR_ARG
+            return get_arg_type_color("error")
 
     if arg_type:
         return {
             "item": "cyan", "location": "green", "player": "yellow",
-            "command": "orange", "error": "underline;red"
+            "command": "orange", "unrecognized": "red", "error": "underline;red"
         }.get(arg_type)
 
 
-def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMessagePart]:
+def colorize_input(text: str, ctx: CommonContext | None = None,
+                   server_version: Version | None = None) -> list[JSONMessagePart]:
+    if not server_version and ctx:
+        server_version = ctx.server_version
+
     try:
         args = shlex.split(text)
     except ValueError:
@@ -550,10 +575,11 @@ def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMess
             if form.command_type == CommandType.server_console:
                 return False
             if form.command_type == CommandType.client_connected:
-                if not (ctx.server_version and ctx.server_tags):
+                if not ctx.server_tags:
                     return False
+                assert server_version
                 # Check server compatibility
-                if form.starting_server_version > ctx.server_version:
+                if form.starting_server_version > server_version:
                     return False
                 if not form.required_tags.issubset(ctx.server_tags):
                     return False
@@ -582,7 +608,8 @@ def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMess
                 elif first_split[1] == "logout":
                     add_json_color(parts, "logout", get_arg_type_color("command"))
                 else:
-                    parts.extend(colorize_input(first_split[1]))  # Strip context so it's treated as from server
+                    # Strip context so it's treated as from server, but use the server's reported version
+                    parts.extend(colorize_input(first_split[1], server_version=server_version))
             elif args[0] == "/alias":
                 player_name, sp, alias = first_split[1].partition(" ")
                 add_json_color(parts, player_name, get_arg_type_color("player"))
@@ -597,7 +624,20 @@ def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMess
 
     subpart_list = _extract_matching_runs(text, args)
 
-    for subparts, arg_type in zip(subpart_list, chain(("command",), data.arg_types, repeat(data.vararg_type))):
+    arg_types = ["command"] + list(data.arg_types)
+    if not ctx and args[0] == "/option" and len(args) > 1:
+        matching_option = next((data for data in SERVER_OPTIONS if data.option == args[1]
+                                and (not server_version or data.starting_server_version <= server_version)), None)
+        if matching_option:
+            if len(args) > 2:
+                if isinstance(matching_option.val_type, tuple):
+                    arg_types[2] = "unrecognized" if args[2] not in matching_option.val_type else None
+                else:
+                    arg_types[2] = matching_option.val_type
+        else:
+            arg_types[1] = "unrecognized"
+
+    for subparts, arg_type in zip(subpart_list, chain(arg_types, repeat(data.vararg_type))):
         arg_color = get_arg_type_color(arg_type, "".join(subpart for subpart, _ in subparts))
 
         for (subpart, highlight) in subparts:
