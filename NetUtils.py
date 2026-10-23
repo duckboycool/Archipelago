@@ -397,12 +397,73 @@ class CommandType(enum.IntEnum):
 @dataclass
 class CommandData:
     command: str
-    arg_types: Sequence[str | None]  # Specifies color, or special value of "$int" for an integer
+    arg_types: Sequence[str | None]  # Specifies type for colors, or special value of "$int" for an integer
     raw: bool
     command_type: CommandType
-    vararg_type: str = "underline;red"  # Type for after all arg_types are exhausted. Defaults signifies an error
+    vararg_type: str = "error"  # Type for after all arg_types are exhausted
     starting_server_version: Version = Version(0, 6, 0)
     required_tags: frozenset[str] = frozenset()
+
+COMMAND_FORMS: tuple[CommandData, ...] = (
+    CommandData("!help", (), False, CommandType.client_connected),
+    CommandData("!license", (), False, CommandType.client_connected),
+    CommandData("!options", (), False, CommandType.client_connected),
+    CommandData("!admin", (), True, CommandType.client_connected),  # Special cased for forms and for following command
+    CommandData("!players", (), False, CommandType.client_connected),
+    CommandData("!status", (None,), False, CommandType.client_connected),
+    CommandData("!release", (), False, CommandType.client_connected),
+    CommandData("!collect", (), False, CommandType.client_connected),
+    CommandData("!countdown", ("$int",), False, CommandType.client_connected),
+    CommandData("!remaining", (), False, CommandType.client_connected),
+    CommandData("!missing", (None,), True, CommandType.client_connected),
+    CommandData("!checked", (None,), True, CommandType.client_connected),
+    CommandData("!alias", (None,), True, CommandType.client_connected),
+    CommandData("!getitem", ("item",), True, CommandType.client_connected),
+    CommandData("!hint", ("item",), True, CommandType.client_connected),
+    CommandData("!hint_location", ("location",), True, CommandType.client_connected),
+
+    CommandData("/help", (), False, CommandType.server_console),
+    CommandData("/license", (), False, CommandType.server_console),
+    CommandData("/options", (), False, CommandType.server_console),
+    CommandData("/save", (), False, CommandType.server_console),
+    CommandData("/players", (), False, CommandType.server_console),
+    CommandData("/status", (None,), False, CommandType.server_console),
+    CommandData("/exit", (), False, CommandType.server_console),
+    CommandData("/alias", (), True, CommandType.server_console),  # Special cased for taking a single arg then splitting
+    CommandData("/collect", ("player",), True, CommandType.server_console),
+    CommandData("/countdown", ("$int",), False, CommandType.server_console),
+    CommandData("/release", ("player",), True, CommandType.server_console),
+    CommandData("/allow_release", ("player",), True, CommandType.server_console),
+    CommandData("/forbid_release", ("player",), True, CommandType.server_console),
+    CommandData("/send_multiple", ("$int", "player"), False, CommandType.server_console, vararg_type="item"),
+    CommandData("/send", ("player",), False, CommandType.server_console, vararg_type="item"),
+    CommandData("/send_location", ("player",), False, CommandType.server_console, vararg_type="location"),
+    CommandData("/send_multiple", ("$int", "player"), True, CommandType.server_console, vararg_type="item"),
+    CommandData("/hint", ("player",), False, CommandType.server_console, vararg_type="item"),
+    CommandData("/hint_location", ("player",), False, CommandType.server_console, vararg_type="location"),
+    CommandData("/option", ("option", None), False, CommandType.server_console, vararg_type="item"),
+    CommandData("/datastore", (), False, CommandType.server_console),
+
+    CommandData("/help", (), False, CommandType.client_always),
+    CommandData("/license", (), False, CommandType.client_always),
+    CommandData("/exit", (), False, CommandType.client_always),
+    CommandData("/connect", (None,), False, CommandType.client_always),
+    CommandData("/disconnect", (), False, CommandType.client_always),
+    CommandData("/received", (), False, CommandType.client_always),
+    CommandData("/missing", (None,), False, CommandType.client_always),
+    CommandData("/items", (), False, CommandType.client_always),
+    CommandData("/locations", (), False, CommandType.client_always),
+    CommandData("/item_groups", ("item",), True, CommandType.client_always),
+    CommandData("/location_groups", ("location",), True, CommandType.client_always),
+    CommandData("/ready", (), False, CommandType.client_always),
+
+    # Customserver-specific command
+    CommandData("!video", (None, None), False, CommandType.client_connected),
+)
+"""
+List of recognized commands and metadata for highlighting.
+Commands with mutliple version variants should be stored from newest to oldest.
+"""
 
 
 def _extract_matching_runs(text: str, args: list[str]) -> list[list[str]]:
@@ -455,6 +516,21 @@ def _extract_matching_runs(text: str, args: list[str]) -> list[list[str]]:
     return subpart_list
 
 
+def get_arg_type_color(arg_type: str | None, arg_val: str = "") -> str | None:
+    if arg_type == "$int":
+        try:
+            int(arg_val)
+            return None
+        except ValueError:
+            return ERROR_ARG
+
+    if arg_type:
+        return {
+            "item": "cyan", "location": "green", "player": "yellow",
+            "command": "orange", "error": "underline;red"
+        }.get(arg_type)
+
+
 def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMessagePart]:
     try:
         args = shlex.split(text)
@@ -497,21 +573,35 @@ def colorize_input(text: str, ctx: CommonContext | None = None) -> list[JSONMess
     if data.raw:
         first_split = text.split(maxsplit=1)
         if len(first_split) > 1:
-            add_json_color(parts, text[:-len(first_split[1])], "orange")
+            add_json_color(parts, text[:-len(first_split[1])], get_arg_type_color("command"))
 
             if ctx and args[0] == "!admin":
-                parts.extend(colorize_input(first_split[1]))  # Strip context so it's treated as from server
+                if first_split[1].strip().startswith("login "):
+                    add_json_color(parts, "login ", get_arg_type_color("command"))
+                    add_json_text(parts, first_split[1][6:])
+                elif first_split[1] == "logout":
+                    add_json_color(parts, "logout", get_arg_type_color("command"))
+                else:
+                    parts.extend(colorize_input(first_split[1]))  # Strip context so it's treated as from server
+            elif args[0] == "/alias":
+                player_name, sp, alias = first_split[1].partition(" ")
+                add_json_color(parts, player_name, get_arg_type_color("player"))
+                add_json_text(parts, sp + alias)
             else:
-                add_json_color(parts, first_split[1], data.arg_types[0] if data.arg_types else data.vararg_type)
+                arg_type = data.arg_types[0] if data.arg_types else data.vararg_type
+                arg_color = get_arg_type_color(arg_type, first_split[1])
+                add_json_color(parts, first_split[1], arg_color)
         else:
-            add_json_color(parts, text, "orange")
+            add_json_color(parts, text, get_arg_type_color("command"))
         return parts
 
     subpart_list = _extract_matching_runs(text, args)
 
-    for subparts, arg_type in zip(subpart_list, chain(("orange",), data.arg_types, repeat(data.vararg_type))):
+    for subparts, arg_type in zip(subpart_list, chain(("command",), data.arg_types, repeat(data.vararg_type))):
+        arg_color = get_arg_type_color(arg_type, "".join(subpart for subpart, _ in subparts))
+
         for (subpart, highlight) in subparts:
-            add_json_color(parts, subpart, arg_type if highlight else f"{arg_type}_dark")
+            add_json_color(parts, subpart, arg_color if highlight else f"{arg_color}_dark")
 
     return parts
 
