@@ -216,6 +216,22 @@
 
             const argFormats = ['command', ...commandData['pos_args']];
 
+            if (args[0] === '/option' && args.length > 1) {
+              const valType = highlightData['options'][args[1]];
+
+              if (valType) {
+                if (args.length > 2) {
+                  if (Array.isArray(valType)) {
+                    argFormats[2] = valType.includes(args[2]) ? null : 'unrecognized';
+                  } else {
+                    argFormats[2] = valType;
+                  }
+                }
+              } else {
+                argFormats[1] = 'unrecognized';
+              }
+            }
+
             let inFormat = true;
             for (let i = 0; i < args.length; i++) {
               let format = i < argFormats.length ? argFormats[i] : commandData['vararg'];
@@ -223,7 +239,7 @@
               for (const subpart of subparts[i]) {
                 if (format === '$int') {
                   // Not an exact match to server handling, but should be fine
-                  format = /^\d$/.test(args[i]) ? null : 'error';
+                  format = /^\d+$/.test(args[i]) ? null : 'error';
                 }
 
                 let color = highlightData['arg_colors'][format];
