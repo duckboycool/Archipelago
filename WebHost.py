@@ -1,7 +1,8 @@
 import argparse
 import os
-import multiprocessing
+import json
 import logging
+import multiprocessing
 import typing
 
 import ModuleUpdate
@@ -95,6 +96,24 @@ def copy_tutorials_files_to_static() -> None:
                                 Utils.local_path(target_path, secure_filename(file)))
 
 
+def copy_command_highlight_info():
+    from NetUtils import COMMAND_FORMS, SERVER_OPTIONS, CommandType, color_rgb, get_dark_color
+    data = {}
+    data["colors"] = color_rgb.copy()
+    data["colors"] |= {f"{color}_dark": get_dark_color(color, color_rgb) for color in color_rgb}
+
+    # Go through commands reversed so that current version gets inserted last and takes precedence
+    data["commands"] = {
+        form.command: {"pos_args": form.arg_types, "raw": form.raw, "vararg": form.vararg_type}
+        for form in reversed(COMMAND_FORMS) if form.command_type == CommandType.server_console
+    }
+
+    data["options"] = {option.option: option.val_type for option in SERVER_OPTIONS}
+
+    with open(Utils.local_path("WebHostLib", "static", "generated", "command-highlights.json"), "w") as file:
+        json.dump(data, file)
+
+
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     multiprocessing.set_start_method('spawn')
@@ -120,6 +139,7 @@ if __name__ == "__main__":
     network_data_package["games"] = {k: v for k, v in network_data_package["games"].items() if k not in invalid_worlds}
     create_options_files()
     copy_tutorials_files_to_static()
+    copy_command_highlight_info()
     if app.config["SELFLAUNCH"]:
         autohost(app.config)
     if app.config["SELFGEN"]:

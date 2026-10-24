@@ -7,6 +7,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import inspect
+from colorsys import hls_to_rgb, rgb_to_hls
 from itertools import chain, repeat
 from json import JSONEncoder, JSONDecoder
 
@@ -259,22 +260,24 @@ class JSONTypes(str, enum.Enum):
     hint_status = "hint_status"
 
 
+color_rgb = {
+    # not exact color names, close enough but decent looking
+    "black": "000000",
+    "red": "EE0000",
+    "green": "00FF7F",
+    "yellow": "FAFA40",
+    "blue": "6495ED",
+    "magenta": "EE00EE",
+    "cyan": "00EEEE",
+    "slateblue": "6D8BE8",
+    "plum": "AF99EF",
+    "salmon": "FA8072",
+    "white": "FFFFFF",
+    "orange": "FF7700",
+}
+
 class JSONtoTextParser(metaclass=HandlerMeta):
-    color_codes = {
-        # not exact color names, close enough but decent looking
-        "black": "000000",
-        "red": "EE0000",
-        "green": "00FF7F",
-        "yellow": "FAFA40",
-        "blue": "6495ED",
-        "magenta": "EE00EE",
-        "cyan": "00EEEE",
-        "slateblue": "6D8BE8",
-        "plum": "AF99EF",
-        "salmon": "FA8072",
-        "white": "FFFFFF",
-        "orange": "FF7700",
-    }
+    color_codes = color_rgb
 
     def __init__(self, ctx):
         self.ctx = ctx
@@ -345,6 +348,16 @@ class JSONtoTextParser(metaclass=HandlerMeta):
     def _handle_hint_status(self, node: JSONMessagePart):
         node["color"] = status_colors.get(node["hint_status"], "red")
         return self._handle_color(node)
+
+
+def get_dark_color(color: str, color_codes: dict[str, str]) -> str | None:
+    color_code = color_codes.get(color)
+    if color_code:
+        r, g, b = [int(part, 16) / 255 for part in (color_code[:2], color_code[2:4], color_code[4:])]
+        h, l, s = rgb_to_hls(r, g, b)
+        color_code = "".join(f"{int(255 * part):02X}" for part in hls_to_rgb(h, l / 1.8, s / 2.5))
+
+    return color_code
 
 
 class RawJSONtoTextParser(JSONtoTextParser):

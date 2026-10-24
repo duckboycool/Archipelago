@@ -7,7 +7,6 @@ import io
 import pkgutil
 from abc import abstractmethod
 from collections import deque
-from colorsys import hls_to_rgb, rgb_to_hls
 assert "kivy" not in sys.modules, "kvui should be imported before kivy for frozen compatibility"
 
 if sys.platform == "win32":
@@ -102,7 +101,7 @@ from kivymd.uix.tooltip import MDTooltip, MDTooltipPlain
 
 fade_in_animation = Animation(opacity=0, duration=0) + Animation(opacity=1, duration=0.25)
 
-from NetUtils import JSONtoTextParser, JSONMessagePart, SlotType, HintStatus, colorize_input
+from NetUtils import JSONtoTextParser, JSONMessagePart, SlotType, HintStatus, colorize_input, get_dark_color
 from Utils import async_start, get_input_text_from_response
 
 if typing.TYPE_CHECKING:
@@ -1492,11 +1491,7 @@ class KivyJSONtoTextParser(JSONtoTextParser):
         node["text"] = escape_markup(node["text"])
         for color in colors:
             if color.endswith("_dark"):
-                color_code = self.color_codes.get(color[:-5])
-                if color_code:
-                    r, g, b = [int(part, 16) / 255 for part in (color_code[:2], color_code[2:4], color_code[4:])]
-                    h, l, s = rgb_to_hls(r, g, b)
-                    color_code = "".join(f"{int(255 * part):2X}" for part in hls_to_rgb(h, l / 1.8, s / 2.5))
+                color_code = get_dark_color(color[:-5], self.color_codes)
             else:
                 color_code = self.color_codes.get(color)
             if color_code:
