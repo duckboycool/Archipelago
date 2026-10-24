@@ -89,10 +89,11 @@ class Shlexer {
     return undefined
   }
 
-  * [Symbol.iterator] () {
+  split (string, tokens, fullTokens) {
     let inQuote = false
     let escaped = false
     let token
+    let fullToken = ''
 
     if (this.debug) {
       console.log('full input:', '>' + this.string + '<')
@@ -107,6 +108,7 @@ class Shlexer {
           'position:', pos,
           'input:', '>' + char + '<',
           'accumulated:', token,
+          'ignored', ignoredToken,
           'inQuote:', inQuote,
           'escaped:', escaped
         )
@@ -116,7 +118,10 @@ class Shlexer {
       if (char === '') {
         if (inQuote) { throw new Error('Got EOF while in a quoted string') }
         if (escaped) { throw new Error('Got EOF while in an escape sequence') }
-        if (token !== undefined) { yield token }
+        if (token !== undefined) {
+          tokens.push(token)
+          fullTokens.push(fullToken)
+        }
         return
       }
 
@@ -129,9 +134,11 @@ class Shlexer {
           // If we are in a quote, just accumulate the whole escape sequence,
           // as we will interpret escape sequences later.
           token = (token || '') + escaped + char
+          fullToken += char
         } else {
           // Just use the literal character
           token = (token || '') + char
+          fullToken += char
         }
 
         escaped = false
@@ -143,6 +150,7 @@ class Shlexer {
           // We encountered an escape character, which is going to affect how
           // we treat the next character.
           escaped = char
+          fullToken += char
           continue
         } else {
           // This string type doesn't use escape characters. Ignore for now.
@@ -151,6 +159,7 @@ class Shlexer {
 
       // We were in a string
       if (inQuote !== false) {
+        fullToken += char
         // String is finished. Don't grab the quote character.
         if (char === inQuote) {
           token = this.processEscapes(token, inQuote)
@@ -167,19 +176,26 @@ class Shlexer {
       if (this.quotes.includes(char)) {
         inQuote = char
         token = (token || '') // fixes blank string
+        fullToken += char
 
         continue
       }
 
-      // This is whitespace, so yield the token if we have one
+      // This is whitespace, so add the token if we have one
       if (this.whitespace.includes(char)) {
-        if (token !== undefined) { yield token }
+        if (token !== undefined) {
+          tokens.push(token)
+          fullTokens.push(fullToken)
+          fullToken = ''
+        }
+        fullToken += char
         token = undefined
         continue
       }
 
       // Otherwise, accumulate the character
       token = (token || '') + char
+      fullToken += char
     }
   }
 }
@@ -192,5 +208,57 @@ class Shlexer {
  * @returns {String[]}
  */
 function shlex_split (s) {
-  return Array.from(new Shlexer(s))
+  const tokens = []
+  const fullTokens = []
+  new Shlexer(s).split(s, tokens, fullTokens)
+  return tokens
+}
+
+// Alt split function that returns parts of regular tokens interleaved with the
+// ignored characters.
+function shlex_get_subparts (s) {
+  const tokens = []
+  const fullTokens = []
+  const shlex = new Shlexer(s)
+  shlex.split(s, tokens, fullTokens)
+
+  const out = []
+  for (let i = 0; i < tokens.length; i++) {
+    // Run through just the given token to see which parts overlap
+    const token = tokens[i]
+    const fullToken = fullTokens[i]
+
+    const parts = []
+    let curPart = ''
+    let lastMatched = true
+    let tokPos = 0
+    let fullPos = 0
+    while (fullPos < fullToken.length) {
+      const nowMatch = token[tokPos] === fullToken[fullPos]
+      if (nowMatch !== lastMatched && curPart !== '') {
+        parts.push([curPart, lastMatched])
+        curPart = ''
+      }
+      if (nowMatch) {
+        tokPos++
+      }
+      curPart += fullToken[fullPos]
+      fullPos++
+      lastMatched = nowMatch
+    }
+
+    if (curPart !== '') parts.push([curPart, lastMatched])
+    out.push(parts)
+  }
+
+  const trailingSpace = s.match(/([ \t\r\n]+)$/);
+  if (trailingSpace != null) {
+    if (out.length > 0) {
+      out[out.length - 1].push([trailingSpace[1], false])
+    } else {
+      out.push([[trailingSpace[1], false]])
+    }
+  }
+
+  return out
 }
