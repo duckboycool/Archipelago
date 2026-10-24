@@ -73,6 +73,7 @@
           let updateLogTimeout;
           let updateLogImmediately = false;
           let awaitingCommandResponse = false;
+          const whitespace = /([ \t\r\n]+)/g;
           const logger = document.getElementById('logger');
           const loader = document.getElementById('command-spinner');
           const commandConsole = document.getElementById('color-console');
@@ -133,6 +134,22 @@
             }
           }
 
+          function addColorNode(elem, text, color) {
+            let style = '';
+            if (color.startsWith('underline')) {
+              style += 'text-decoration: underline;';
+              color = color.slice(10);
+            }
+            if (color) {
+              style += `color: #${highlightData['color_codes'][color]}`
+            }
+
+            const node = document.createElement('span');
+            node.style = style;
+            node.innerText = text;
+            elem.appendChild(node);
+          }
+
           function colorizeCommand(command) {
             if (command === '') {
               return [];
@@ -150,7 +167,6 @@
               args = shlex_split(command);
               subparts = shlex_get_subparts(command);
             } catch {
-              const whitespace = /([ \t\r\n]+)/g;
               const parts = command.split(whitespace);
 
               let curSubpart = [];
@@ -166,37 +182,60 @@
               }
             }
 
-            const expectedFormat = [];
+            const commandData = highlightData['commands'][args[0]];
+            if (!commandData) {
+              out.innerText = command;
+              return out;
+            }
+
+            if (commandData['raw']) {
+              const commandSplit = command.split(whitespace, 1)[0];
+              const argSplit = command.slice(commandSplit.length + 1);
+
+              if (argSplit !== '') {
+                addColorNode(out, commandSplit + (argSplit ? ' ' : ''), highlightData['arg_colors']['command']);
+
+                if (args[0] === '/alias') {
+                  const playerName = argSplit.split(' ', 1)[0];
+                  const rest = argSplit.slice(playerName.length);
+
+                  addColorNode(out, playerName, highlightData['arg_colors']['player']);
+                  if (rest !== '') {
+                    out.appendChild(document.createTextNode(rest));
+                  }
+                } else {
+                  const type = commandData['pos_args'].length > 0 ? commandData['pos_args'][0] : commandData['vararg'];
+                  addColorNode(out, argSplit, highlightData['arg_colors'][type]);
+                }
+              } else {
+                addColorNode(out, command, highlightData['arg_colors']['command']);
+              }
+
+              return out;
+            }
+
+            const argFormats = ['command', ...commandData['pos_args']];
 
             let inFormat = true;
             for (let i = 0; i < args.length; i++) {
-              const format = i < expectedFormat.length ? expectedFormat[i] : [null, null];
+              let format = i < argFormats.length ? argFormats[i] : commandData['vararg'];
 
               for (const subpart of subparts[i]) {
-                if (format[1] == null) {
+                if (format === '$int') {
+                  // Not an exact match to server handling, but should be fine
+                  format = /^\d$/.test(args[i]) ? null : 'error';
+                }
+
+                let color = highlightData['arg_colors'][format];
+                if (!color) {
                   out.appendChild(document.createTextNode(subpart[0]));
                   continue;
                 }
-
-                let color = format[1];
                 if (!subpart[1]) {
                   color += '_dark';
                 }
 
-                let style = '';
-
-                if (color.startsWith('underline')) {
-                  style += 'text-decoration: underline;';
-                  color = color.slice(10);
-                }
-                if (color) {
-                  style += `color: ${color}`
-                }
-
-                const node = document.createElement('span');
-                node.style = style;
-                node.innerText = subpart[0];
-                out.appendChild(node);
+                addColorNode(out, subpart[0], color);
               }
             }
 

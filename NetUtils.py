@@ -551,6 +551,11 @@ def _extract_matching_runs(text: str, args: list[str]) -> list[list[str]]:
     return subpart_list
 
 
+_basic_arg_colors = {
+    "item": "cyan", "location": "green", "player": "yellow",
+    "command": "orange", "unrecognized": "red", "error": "underline;red"
+}
+
 def get_arg_type_color(arg_type: str | None, arg_val: str = "") -> str | None:
     if arg_type == "$int":
         try:
@@ -560,10 +565,7 @@ def get_arg_type_color(arg_type: str | None, arg_val: str = "") -> str | None:
             return get_arg_type_color("error")
 
     if arg_type:
-        return {
-            "item": "cyan", "location": "green", "player": "yellow",
-            "command": "orange", "unrecognized": "red", "error": "underline;red"
-        }.get(arg_type)
+        return _basic_arg_colors.get(arg_type)
 
 
 def colorize_input(text: str, ctx: CommonContext | None = None,

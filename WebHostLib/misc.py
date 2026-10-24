@@ -47,10 +47,12 @@ def get_visible_worlds() -> dict[str, type(World)]:
 
 @cache_argsless
 def get_command_highlight_info():
-    from NetUtils import COMMAND_FORMS, SERVER_OPTIONS, CommandType, color_rgb, get_dark_color
+    from NetUtils import COMMAND_FORMS, SERVER_OPTIONS, CommandType, color_rgb, _basic_arg_colors, get_dark_color
     data = {}
-    data["colors"] = color_rgb.copy()
-    data["colors"] |= {f"{color}_dark": get_dark_color(color, color_rgb) for color in color_rgb}
+    data["color_codes"] = color_rgb.copy()
+    data["color_codes"] |= {f"{color}_dark": get_dark_color(color, color_rgb) for color in color_rgb}
+
+    data["arg_colors"] = _basic_arg_colors
 
     # Go through commands reversed so that current version gets inserted last and takes precedence
     data["commands"] = {
