@@ -582,6 +582,9 @@ def colorize_input(text: str, ctx: CommonContext | None = None,
         return []
 
     parts = []
+    if ctx and ctx.input_requests > 0:
+        add_json_text(parts, text)
+        return parts
 
     def command_form_matches(form: CommandData):
         if form.command != args[0]:
