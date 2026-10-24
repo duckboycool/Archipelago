@@ -45,13 +45,20 @@
         </span>
         {{ macros.list_patches_room(room) }}
         {% if room.owner == session["_id"] %}
+            <script type="application/ecmascript" src="{{ url_for('static', filename="assets/shlex.js") }}"></script>
             <div style="display: flex; align-items: center;">
                 <form method="post" id="command-form" style="flex-grow: 1; margin-right: 1em;">
                     <div class="form-group">
                         <label for="cmd"></label>
                         <input class="form-control" type="text" id="cmd" name="cmd"
                                placeholder="Server Command. /help to list them, list gets appended to log.">
-                        <span class="loader"></span>
+                        <div id="color-console-container" hidden>
+                          <label>
+                          Server Console (/help for commands)<br />
+                          <div id="color-console" contenteditable="plaintext-only" spellcheck="false"></div>
+                          </label>
+                        </div>
+                        <span class="loader" id="command-spinner"></span>
                     </div>
                 </form>
                 <a href="{{ url_for("display_log", room=room.id) }}">
@@ -66,7 +73,15 @@
           let updateLogTimeout;
           let updateLogImmediately = false;
           let awaitingCommandResponse = false;
-          let logger = document.getElementById("logger");
+          const logger = document.getElementById('logger');
+          const loader = document.getElementById('command-spinner');
+          const commandConsole = document.getElementById('color-console');
+          const selection = window.getSelection();
+
+          document.getElementById('cmd').hidden = true;
+          document.getElementById('color-console-container').hidden = false;
+
+          const highlightData = JSON.parse('{{ highlight_data | tojson | safe }}');
 
           function scrollToBottom(el) {
             let bot = el.scrollHeight - el.clientHeight;
@@ -105,8 +120,7 @@
                     }
                     logger.appendChild(document.createTextNode(text));
                     scrollToBottom(logger);
-                    let loader = document.getElementById("command-form").getElementsByClassName("loader")[0];
-                    loader.classList.remove("loading");
+                    loader.classList.remove('loading');
                   }
                 }
               } else {
@@ -119,24 +133,86 @@
             }
           }
 
-          async function postForm(ev) {
-            /** @type {HTMLInputElement} */
-            let cmd = document.getElementById("cmd");
-            if (cmd.value === "") {
-              ev.preventDefault();
-              return;
+          function colorizeCommand(command) {
+            if (command === '') {
+              return [];
             }
-            /** @type {HTMLFormElement} */
-            let form = document.getElementById("command-form");
-            let req = fetch(form.action || window.location.href, {
-              method: form.method,
-              body: new FormData(form),
-              redirect: "manual",
+
+            const out = document.createElement('span');
+            if (command.trim() === '') {
+              out.innerText = command;
+              return out;
+            }
+
+            let subparts = [];
+            let args = [];
+            try {
+              args = shlex_split(command);
+              subparts = shlex_get_subparts(command);
+            } catch {
+              const whitespace = /([ \t\r\n]+)/g;
+              const parts = command.split(whitespace);
+
+              let curSubpart = [];
+              let onArg = !whitespace.test(parts[0]);
+              for (const part of parts) {
+                curSubpart.push([part, onArg]);
+                if (onArg) {
+                  args.push(part);
+                  subparts.push(curSubpart);
+                  curSubpart = [];
+                }
+                onArg = !onArg;
+              }
+            }
+
+            const expectedFormat = [];
+
+            let inFormat = true;
+            for (let i = 0; i < args.length; i++) {
+              const format = i < expectedFormat.length ? expectedFormat[i] : [null, null];
+
+              for (const subpart of subparts[i]) {
+                if (format[1] == null) {
+                  out.appendChild(document.createTextNode(subpart[0]));
+                  continue;
+                }
+
+                let color = format[1];
+                if (!subpart[1]) {
+                  color += '_dark';
+                }
+
+                let style = '';
+
+                if (color.startsWith('underline')) {
+                  style += 'text-decoration: underline;';
+                  color = color.slice(10);
+                }
+                if (color) {
+                  style += `color: ${color}`
+                }
+
+                const node = document.createElement('span');
+                node.style = style;
+                node.innerText = subpart[0];
+                out.appendChild(node);
+              }
+            }
+
+            return out;
+          }
+
+          async function postCommand(command) {
+            const form = new FormData();
+            form.append('cmd', command);
+            const req = fetch(window.location.href, {
+              method: 'POST',
+              body: form,
+              redirect: 'manual',
             });
-            ev.preventDefault(); // has to happen before first await
-            form.reset();
-            let loader = form.getElementsByClassName("loader")[0];
-            loader.classList.add("loading");
+
+            loader.classList.add('loading');
             try {
               let res = await req;
               if (res.ok || res.type === 'opaqueredirect') {
@@ -144,17 +220,39 @@
                 window.clearTimeout(updateLogTimeout);
                 updateLogTimeout = window.setTimeout(updateLog, 100);
               } else {
-                loader.classList.remove("loading");
+                loader.classList.remove('loading');
                 window.alert(res.statusText);
               }
             } catch (e) {
                 console.error(e);
-                loader.classList.remove("loading");
+                loader.classList.remove('loading');
                 window.alert(e.message);
             }
           }
 
-          document.getElementById("command-form").addEventListener("submit", postForm);
+          async function handleConsole(ev) {
+            if (ev.inputType === 'insertLineBreak') {
+              if (commandConsole.textContent !== '') {
+                postCommand(commandConsole.textContent);
+              }
+              commandConsole.textContent = '';
+              return;
+            }
+
+            // Replacing content kills caret position. This uses a simple method
+            // to restore it from https://stackoverflow.com/a/70841729/13357878
+            selection.extend(commandConsole, 0);
+            let position = selection.toString().length;
+
+            commandConsole.replaceChildren(colorizeCommand(commandConsole.textContent));
+
+            while (position > 0) {
+              selection.modify('move', 'forward', 'character');
+              position--;
+            }
+          }
+
+          commandConsole.addEventListener('input', handleConsole);
           updateLogTimeout = window.setTimeout(updateLog, 1000);
           logger.scrollTop = logger.scrollHeight;
           document.addEventListener("visibilitychange", () => {
