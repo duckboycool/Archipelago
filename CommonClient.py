@@ -23,7 +23,7 @@ if __name__ == "__main__":
 from MultiServer import CommandProcessor, mark_raw
 from NetUtils import (Endpoint, decode, NetworkItem, encode, JSONtoTextParser, ClientStatus, Permission, NetworkSlot,
                       RawJSONtoTextParser, add_json_text, add_json_location, add_json_item, JSONTypes, HintStatus, SlotType)
-from Utils import gui_enabled, Version, async_start, input_console
+from Utils import gui_enabled, Version, async_start, get_file_safe_name, input_console
 from worlds import network_data_package
 import os
 import ssl
@@ -1171,21 +1171,26 @@ async def process_server_cmd(ctx: CommonContext, args: dict):
 async def console_loop(ctx: CommonContext):
     commandprocessor = ctx.command_processor(ctx)
     queue = asyncio.Queue()
-    input_console(sys.stdin, queue, ctx)
-    while not ctx.exit_event.is_set():
-        try:
-            input_text = await queue.get()
-            queue.task_done()
+    history_name = "".join(get_file_safe_name(ctx.game or "common").lower().split()) + "client"
+    _, console_exit = input_console(sys.stdin, queue, history_name, ctx)
+    try:
+        while not ctx.exit_event.is_set():
+            try:
+                input_text = await queue.get()
+                queue.task_done()
 
-            if ctx.input_requests > 0:
-                ctx.input_requests -= 1
-                ctx.input_queue.put_nowait(input_text)
-                continue
+                if ctx.input_requests > 0:
+                    ctx.input_requests -= 1
+                    ctx.input_queue.put_nowait(input_text)
+                    continue
 
-            if input_text:
-                commandprocessor(input_text)
-        except Exception as e:
-            logger.exception(e)
+                if input_text:
+                    commandprocessor(input_text)
+            except Exception as e:
+                logger.exception(e)
+    finally:
+        if console_exit:
+            console_exit.set()
 
 
 def get_base_parser(description: typing.Optional[str] = None):
