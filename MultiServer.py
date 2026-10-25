@@ -2394,7 +2394,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
                         return True
         else:
             self.output(response)
-            return False
+        return False
 
     def resolve_player(self, input_name: str) -> tuple[int, int, str] | None:
         """ returns (team, slot, player name) """
