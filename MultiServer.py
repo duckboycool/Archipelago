@@ -1397,11 +1397,7 @@ class CommandMeta(type):
         return super(CommandMeta, cls).__new__(cls, name, bases, attrs)
 
 
-_Return = typing.TypeVar("_Return")
-# TODO: when python 3.10 is lowest supported, typing.ParamSpec
-
-
-def mark_raw(function: typing.Callable[[typing.Any], _Return]) -> typing.Callable[[typing.Any], _Return]:
+def mark_raw[**P, Return](function: typing.Callable[P, Return]) -> typing.Callable[P, Return]:
     function.raw_text = True
     return function
 
@@ -1583,7 +1579,8 @@ class ClientMessageProcessor(CommonCommandProcessor):
             self.output(get_players_string(self.ctx))
         return True
 
-    def _cmd_status(self, tag:str="") -> bool:
+    @mark_raw
+    def _cmd_status(self, tag: str = "") -> bool:
         """Get status information about your team.
         Optionally mention a Tag name and get information on who has that Tag.
         For example: DeathLink or EnergyLink."""
@@ -1677,7 +1674,7 @@ class ClientMessageProcessor(CommonCommandProcessor):
                 return False
 
     @mark_raw
-    def _cmd_missing(self, filter_text="") -> bool:
+    def _cmd_missing(self, filter_text: str = "") -> bool:
         """List all missing location checks from the server's perspective.
         Can be given text, which will be used as filter."""
 
@@ -1703,7 +1700,7 @@ class ClientMessageProcessor(CommonCommandProcessor):
         return True
 
     @mark_raw
-    def _cmd_checked(self, filter_text="") -> bool:
+    def _cmd_checked(self, filter_text: str = "") -> bool:
         """List all done location checks from the server's perspective.
         Can be given text, which will be used as filter."""
 
@@ -1729,7 +1726,7 @@ class ClientMessageProcessor(CommonCommandProcessor):
         return True
 
     @mark_raw
-    def _cmd_alias(self, alias_name: str = ""):
+    def _cmd_alias(self, alias_name: str = "") -> bool:
         """Set your alias to the passed name."""
         if alias_name:
             alias_name = alias_name[:16].strip()
@@ -2356,6 +2353,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
         self.output(get_players_string(self.ctx))
         return True
 
+    @mark_raw
     def _cmd_status(self, tag: str = "") -> bool:
         """Get status information about teams.
         Optionally mention a Tag name and get information on who has that Tag.
@@ -2397,7 +2395,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
             self.output(response)
             return False
 
-    def resolve_player(self, input_name: str) -> typing.Optional[typing.Tuple[int, int, str]]:
+    def resolve_player(self, input_name: str) -> tuple[int, int, str] | None:
         """ returns (team, slot, player name) """
         # TODO: clean up once we disallow multidata < 0.3.6, which has CI unique names
         # first match case
@@ -2407,7 +2405,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
 
         # if no case-sensitive match, then match without case only if there's only 1 match
         input_lower = input_name.lower()
-        match: typing.Optional[typing.Tuple[int, int, str]] = None
+        match: tuple[int, int, str] | None = None
         for (team, slot), name in self.ctx.player_names.items():
             lowered = name.lower()
             if lowered == input_lower:
@@ -2479,7 +2477,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
         self.output(f"Could not find player {player_name} to forbid the !release command for.")
         return False
 
-    def _cmd_send_multiple(self, amount: typing.Union[int, str], player_name: str, *item_name: str) -> bool:
+    def _cmd_send_multiple(self, amount: str | int, player_name: str, *item_name: str) -> bool:
         """Sends multiples of an item to the specified player"""
         seeked_player, usable, response = get_intended_text(player_name, self.ctx.player_names.values())
         if usable:
