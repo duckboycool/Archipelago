@@ -666,7 +666,7 @@ def input_console(stream: typing.TextIO, queue: asyncio.Queue[str], name: str | 
                 def calc_screen(self) -> list[str]:
                     # XXX: This method will break on python 3.15
                     super(ColorizeReader, self).calc_screen()
-                    return [f"{color_code('reset')}{self.ps1}{parser(colorize_input(''.join(self.buffer), ctx))}"]
+                    return [f"{color_code('reset')}\r{self.ps1}{parser(colorize_input(''.join(self.buffer), ctx))}"]
             Reader = ColorizeReader
         else:
             Reader = ReadlineAlikeReader
@@ -676,7 +676,6 @@ def input_console(stream: typing.TextIO, queue: asyncio.Queue[str], name: str | 
         def queuer():
             reader = Reader(console=console, config=ReadlineConfig(), ps1="> ", ps2="", ps3="", ps4="")
 
-            reader.prepare()
             history_file = user_path("ap_histories", f".{name}_cmd_history") if name else None
             if history_file:
                 try:
