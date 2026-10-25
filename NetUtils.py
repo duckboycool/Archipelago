@@ -495,7 +495,8 @@ SERVER_OPTIONS = (
     OptionData("release_mode", ("disabled", "enabled", "auto", "auto_enabled", "goal")),
     OptionData("remaining_mode", ("disabled", "enabled", "goal")),
     OptionData("collect_mode", ("disabled", "enabled", "auto", "auto_enabled", "goal")),
-    OptionData("countdown_mode", ("disabled", "enabled", "auto")),
+    # countdown_mode first added in https://github.com/ArchipelagoMW/Archipelago/pull/5465
+    OptionData("countdown_mode", ("disabled", "enabled", "auto"), starting_server_version=Version(0, 6, 4)),
     OptionData("item_cheat", None),
     OptionData("compatibility", "$int"),
 )
