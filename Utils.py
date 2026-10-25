@@ -695,12 +695,11 @@ def input_console(stream: typing.TextIO, queue: asyncio.Queue[str], name: str | 
                             reader.handle1(False)
                         if reader.finished:
                             queue.put_nowait(reader.get_unicode())
+                        reader.restore()
                         if not reader.console.get_event(False):
                             sleep(0.1)  # Somewhat prevents prompt from getting eaten by a response line
                     except Exception as e:
                         traceback.print_exc()
-                    finally:
-                        reader.restore()
             finally:
                 reader.restore()
                 if history_file:
