@@ -578,11 +578,16 @@ def init_logging(name: str, loglevel: typing.Union[str, int] = logging.INFO,
         line_clear = "\r\033[2K"
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.addFilter(Filter("NoFile", lambda record: not getattr(record, "NoStream", False)))
+
+        class CRFormatter(logging.Formatter):
+            def format(self, record: logging.LogRecord) -> str:
+                return line_clear + super().format(record).replace("\n", "\n\r") + "\r"
+
         if add_timestamp:
-            formatter = logging.Formatter(fmt=line_clear + "[%(asctime)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+            formatter = CRFormatter(fmt="[%(asctime)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
             stream_handler.setFormatter(formatter)
         else:
-            stream_handler.setFormatter(logging.Formatter(fmt=line_clear + "%(message)s"))
+            stream_handler.setFormatter(CRFormatter(fmt="%(message)s"))
         root_logger.addHandler(stream_handler)
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
