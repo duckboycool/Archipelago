@@ -58,6 +58,11 @@ including the exclamation point.
 - `!getitem <item>` Cheats an item to the currently connected slot, if it is enabled in the server.
 
 
+### WebHost Only
+- `!video <platform> <user>` Set a stream URL for the current slot (platform currently only supports Twitch or YouTube).
+  Adds it to the Multistream link shown on the Multiworld Tracker page.
+
+
 ## Host Commands (on room page or in your server console)
 
 ### General
