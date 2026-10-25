@@ -861,14 +861,22 @@ class CommandButton(MDButton, MDTooltip):
         super().__init__(*args, **kwargs)
         self.manager = manager
         self._tooltip = ToolTip(text="Test")
+        self._active = False
 
     def on_enter(self):
+        self.remove_tooltip()
+        self._active = True
         self._tooltip.text = self.manager.commandprocessor.get_help_text()
         self._tooltip.font_size = dp(20 - (len(self._tooltip.text) // 400))  # mostly guessing on the numbers here
         self.display_tooltip()
 
     def on_leave(self):
+        self._active = False
         self.animation_tooltip_dismiss()
+
+    def _on_dismiss_anim_complete(self, *args):
+        if not self._active:
+            return super()._on_dismiss_anim_complete(*args)
 
 
 class GameManager(ThemedApp):
