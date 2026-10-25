@@ -1640,7 +1640,8 @@ class ClientMessageProcessor(CommonCommandProcessor):
             timer = 10
         else:
             if timer > 60 * 60:
-                raise ValueError(f"{timer} is invalid. Maximum is 1 hour.")
+                self.output(f"{timer} second countdown is invalid. Maximum is 1 hour.")
+                return False
 
         async_start(countdown(self.ctx, timer))
         return True
@@ -1728,15 +1729,16 @@ class ClientMessageProcessor(CommonCommandProcessor):
     @mark_raw
     def _cmd_alias(self, alias_name: str = "") -> bool:
         """Set your alias to the passed name."""
+        assert self.client.slot is not None and self.client.team is not None
         if alias_name:
-            alias_name = alias_name[:16].strip()
+            alias_name = alias_name.lstrip()[:16].rstrip()
             self.ctx.name_aliases[self.client.team, self.client.slot] = alias_name
             self.output(f"Hello, {alias_name}")
             update_aliases(self.ctx, self.client.team)
             self.ctx.save()
             return True
         elif (self.client.team, self.client.slot) in self.ctx.name_aliases:
-            del (self.ctx.name_aliases[self.client.team, self.client.slot])
+            del self.ctx.name_aliases[self.client.team, self.client.slot]
             self.output("Removed Alias")
             update_aliases(self.ctx, self.client.team)
             self.ctx.save()
@@ -2370,23 +2372,22 @@ class ServerCommandProcessor(CommonCommandProcessor):
             self.ctx.exit_event.set()
         return True
 
-    @mark_raw
-    def _cmd_alias(self, player_name_then_alias_name):
+    def _cmd_alias(self, player_name: str, *alias_name: str) -> bool:
         """Set a player's alias, by listing their base name and then their intended alias."""
-        player_name, _, alias_name = player_name_then_alias_name.partition(" ")
         player_name, usable, response = get_intended_text(player_name, self.ctx.player_names.values())
+        alias = " ".join(alias_name)
         if usable:
             for (team, slot), name in self.ctx.player_names.items():
                 if name == player_name:
-                    if alias_name:
-                        alias_name = alias_name.strip()[:15]
-                        self.ctx.name_aliases[team, slot] = alias_name
-                        self.output(f"Named {player_name} as {alias_name}")
+                    if alias:
+                        alias = alias.lstrip()[:16].rstrip()
+                        self.ctx.name_aliases[team, slot] = alias
+                        self.output(f"Named {player_name} as {alias}")
                         update_aliases(self.ctx, team)
                         self.ctx.save()
                         return True
                     else:
-                        del (self.ctx.name_aliases[team, slot])
+                        del self.ctx.name_aliases[team, slot]
                         self.output(f"Removed Alias for {player_name}")
                         update_aliases(self.ctx, team)
                         self.ctx.save()
@@ -2434,7 +2435,8 @@ class ServerCommandProcessor(CommonCommandProcessor):
             timer = 10
         else:
             if timer > 60 * 60:
-                raise ValueError(f"{timer} is invalid. Maximum is 1 hour.")
+                self.output(f"{timer} second countdown is invalid. Maximum is 1 hour.")
+                return False
 
         async_start(countdown(self.ctx, timer))
         return True
