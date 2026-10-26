@@ -1380,6 +1380,19 @@ def json_format_send_event(net_item: NetworkItem, receiving_player: int):
             "item": net_item}
 
 
+def json_format_item_cheat_event(net_item: NetworkItem, receiving_player: int, team: int, amount: int = 1):
+    parts = []
+    NetUtils.add_json_text(parts, "Cheat console: Sending ")
+    if amount != 1:
+        NetUtils.add_json_text(parts, f"{amount} of ")
+    NetUtils.add_json_item(parts, net_item.item, receiving_player, net_item.flags)
+    NetUtils.add_json_text(parts, " to ")
+    NetUtils.add_json_text(parts, receiving_player, type=NetUtils.JSONTypes.player_id)
+
+    return {"cmd": "PrintJSON", "data": parts, "type": "ItemCheat",
+            "team": team, "receiving": receiving_player, "item": net_item, "amount": amount}
+
+
 class CommandMeta(type):
     def __new__(cls, name, bases, attrs):
         commands = attrs["commands"] = {}
@@ -1759,11 +1772,8 @@ class ClientMessageProcessor(CommonCommandProcessor):
                 new_item = NetworkItem(names[item_name], -1, self.client.slot)
                 get_received_items(self.ctx, self.client.team, self.client.slot, False).append(new_item)
                 get_received_items(self.ctx, self.client.team, self.client.slot, True).append(new_item)
-                self.ctx.broadcast_text_all(
-                    'Cheat console: sending "' + item_name + '" to ' + self.ctx.get_aliased_name(self.client.team,
-                                                                                                 self.client.slot),
-                    {"type": "ItemCheat", "team": self.client.team, "receiving": self.client.slot, "item": new_item})
                 send_new_items(self.ctx)
+                self.ctx.broadcast_all([json_format_item_cheat_event(new_item, self.client.slot, self.client.team)])
                 return True
             else:
                 self.output(response)
@@ -2453,6 +2463,22 @@ class ServerCommandProcessor(CommonCommandProcessor):
         self.output(f"Could not find player {player_name} to release")
         return False
 
+    def lookup_name(self, lookup: dict[str, int], *name_parts: str) -> int | str:
+        """
+        Tries to get id from a given name. If name is in the form of an int that is returned,
+        otherwise it fuzzy searches in the lookup and returns the id or a response string if not found.
+        """
+        full_name = " ".join(name_parts)
+
+        try:
+            return int(full_name)
+        except ValueError:
+            closest, usable, response = get_intended_text(full_name, lookup)
+            if usable:
+                return lookup[closest]
+            else:
+                return response
+
     @mark_raw
     def _cmd_allow_release(self, player_name: str) -> bool:
         """Allow the specified player to use the !release command."""
@@ -2484,20 +2510,38 @@ class ServerCommandProcessor(CommonCommandProcessor):
         seeked_player, usable, response = get_intended_text(player_name, self.ctx.player_names.values())
         if usable:
             team, slot = self.ctx.player_name_lookup[seeked_player]
-            item_name = " ".join(item_name)
-            names = self.ctx.item_names_for_game(self.ctx.games[slot])
-            item_name, usable, response = get_intended_text(item_name, names)
-            if usable:
-                amount: int = int(amount)
-                if amount > 100:
-                    raise ValueError(f"{amount} is invalid. Maximum is 100.")
-                new_items = [NetworkItem(names[item_name], -1, 0) for _ in range(int(amount))]
-                send_items_to(self.ctx, team, slot, *new_items)
+            game_lookup = self.ctx.item_names_for_game(self.ctx.games[slot])
+            full_name = " ".join(item_name)
+            _amount = int(amount)
+            if _amount < 0:
+                self.output(f"Cannot steal {abs(_amount)} items from {seeked_player}, that'd be rude.")
+                return False
+            if _amount == 0:
+                self.output(f"Sent none of {full_name} to {seeked_player}. That wasn't very helpful.")
+                return False
+            if _amount > 100:
+                self.output(f"{_amount} items is invalid. Maximum is 100.")
+                return False
 
-                send_new_items(self.ctx)
-                self.ctx.broadcast_text_all(
-                    'Cheat console: sending ' + ('' if amount == 1 else f'{amount} of ') +
-                    f'"{item_name}" to {self.ctx.get_aliased_name(team, slot)}')
+            def send_with_message(ctx: Context, team: int, slot: int, item_id: int, amount: int):
+                new_items = [NetworkItem(item_id, -1, 0) for _ in range(amount)]
+                send_items_to(self.ctx, team, slot, *new_items)
+                ctx.broadcast_all([json_format_item_cheat_event(new_items[0], slot, team, amount)])
+
+            try:
+                send_with_message(self.ctx, team, slot, int(full_name), _amount)
+                return True
+            except ValueError:
+                pass
+
+            if game_lookup is None:
+                self.output("Can't look up item for unknown game. Send by ID instead.")
+                return False
+
+            item, usable, response = get_intended_text(full_name, game_lookup)
+
+            if usable:
+                send_with_message(self.ctx, team, slot, game_lookup[item], _amount)
                 return True
             else:
                 self.output(response)
@@ -2515,28 +2559,27 @@ class ServerCommandProcessor(CommonCommandProcessor):
         seeked_player, usable, response = get_intended_text(player_name, self.ctx.player_names.values())
         if usable:
             team, slot = self.ctx.player_name_lookup[seeked_player]
-            game = self.ctx.games[slot]
+            game_lookup = self.ctx.location_names_for_game(self.ctx.games[slot])
             full_name = " ".join(location_name)
 
-            if full_name.isnumeric():
-                location, usable, response = int(full_name), True, None
-            elif self.ctx.location_names_for_game(game) is not None:
-                location, usable, response = get_intended_text(full_name, self.ctx.location_names_for_game(game))
-            else:
+            try:
+                register_location_checks(self.ctx, team, slot, [int(full_name)])
+                return True
+            except ValueError:
+                pass
+
+            if game_lookup is None:
                 self.output("Can't look up location for unknown game. Send by ID instead.")
                 return False
 
+            location, usable, response = get_intended_text(full_name, game_lookup)
+
             if usable:
-                if isinstance(location, int):
-                    register_location_checks(self.ctx, team, slot, [location])
-                else:
-                    seeked_location: int = self.ctx.location_names_for_game(self.ctx.games[slot])[location]
-                    register_location_checks(self.ctx, team, slot, [seeked_location])
+                register_location_checks(self.ctx, team, slot, [game_lookup[location]])
                 return True
             else:
                 self.output(response)
                 return False
-
         else:
             self.output(response)
             return False
@@ -2549,9 +2592,19 @@ class ServerCommandProcessor(CommonCommandProcessor):
             game = self.ctx.games[slot]
             full_name = " ".join(item_name)
 
-            if full_name.isnumeric():
-                item, usable, response = int(full_name), True, None
-            elif game in self.ctx.all_item_and_group_names:
+            # Numerical ID can only be a single item, check for it first
+            try:
+                hints = collect_hints(self.ctx, team, slot, int(full_name))
+
+                if hints:
+                    self.ctx.notify_hints(team, hints)
+                else:
+                    self.output("No hints found.")
+                return True
+            except ValueError:
+                pass
+
+            if game in self.ctx.all_item_and_group_names:
                 item, usable, response = get_intended_text(full_name, self.ctx.all_item_and_group_names[game])
             else:
                 self.output("Can't look up item for unknown game. Hint for ID instead.")
@@ -2563,7 +2616,7 @@ class ServerCommandProcessor(CommonCommandProcessor):
                     for item_name_from_group in self.ctx.item_name_groups[game][item]:
                         if item_name_from_group in self.ctx.item_names_for_game(game):  # ensure item has an ID
                             hints.extend(collect_hints(self.ctx, team, slot, item_name_from_group))
-                else:  # item name or id
+                else:  # single item name
                     hints = collect_hints(self.ctx, team, slot, item)
 
                 if hints:
@@ -2575,7 +2628,6 @@ class ServerCommandProcessor(CommonCommandProcessor):
             else:
                 self.output(response)
                 return False
-
         else:
             self.output(response)
             return False
@@ -2588,18 +2640,26 @@ class ServerCommandProcessor(CommonCommandProcessor):
             game = self.ctx.games[slot]
             full_name = " ".join(location_name)
 
-            if full_name.isnumeric():
-                location, usable, response = int(full_name), True, None
-            elif game in self.ctx.all_location_and_group_names:
+            # Numerical ID can only be a single location, check for it first
+            try:
+                hints = collect_hint_location_id(self.ctx, team, slot, int(full_name))
+
+                if hints:
+                    self.ctx.notify_hints(team, hints)
+                else:
+                    self.output("No hints found.")
+                return True
+            except ValueError:
+                pass
+
+            if game in self.ctx.all_location_and_group_names:
                 location, usable, response = get_intended_text(full_name, self.ctx.all_location_and_group_names[game])
             else:
                 self.output("Can't look up location for unknown game. Hint for ID instead.")
                 return False
 
             if usable:
-                if isinstance(location, int):
-                    hints = collect_hint_location_id(self.ctx, team, slot, location)
-                elif game in self.ctx.location_name_groups and location in self.ctx.location_name_groups[game]:
+                if game in self.ctx.location_name_groups and location in self.ctx.location_name_groups[game]:
                     hints = []
                     for loc_name_from_group in self.ctx.location_name_groups[game][location]:
                         if loc_name_from_group in self.ctx.location_names_for_game(game):
@@ -2614,7 +2674,6 @@ class ServerCommandProcessor(CommonCommandProcessor):
             else:
                 self.output(response)
                 return False
-
         else:
             self.output(response)
             return False
