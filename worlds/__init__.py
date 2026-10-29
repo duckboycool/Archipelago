@@ -141,7 +141,7 @@ class WorldSource:
             if self.is_zip:
                 # May be redundant if added earlier during initial reading, but means standalone load calls will work,
                 # and also fixes the source used if a previous one was invalid
-                add_apworld_spec(self, APWorldContainer(self.resolved_path))
+                add_apworld_spec(self)
             importlib.import_module(f".{self.name}", "worlds")
             if self.game in AutoWorldRegister.world_types:
                 AutoWorldRegister.world_types[self.game].world_version = self.version
@@ -177,12 +177,11 @@ class APWorldModuleFinder(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, APWorldModuleFinder())
 
 
-def add_apworld_spec(source: WorldSource, container: APWorldContainer):
+def add_apworld_spec(source: WorldSource):
     importer = zipimport.zipimporter(source.resolved_path)
-    world_name = Path(container.path).stem
 
-    spec = importer.find_spec(f"worlds.{world_name}")
-    apworld_module_specs[f"worlds.{world_name}"] = spec
+    spec = importer.find_spec(f"worlds.{source.name}")
+    apworld_module_specs[f"worlds.{source.name}"] = spec
 
 
 # find potential world containers, currently folders and zip-importable .apworld's
@@ -214,7 +213,7 @@ world_sources.sort(key=lambda source: source.is_zip)  # ensure folder worlds are
 earlier_worlds = set()
 for source in world_sources:
     if source.is_zip:
-        add_apworld_spec(source, APWorldContainer(source.resolved_path))
+        add_apworld_spec(source)
     earlier_worlds.add(source.name)
 
 

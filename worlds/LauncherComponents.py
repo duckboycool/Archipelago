@@ -160,15 +160,14 @@ def _install_apworld(apworld_src: str = "") -> Optional[tuple[pathlib.Path, path
     import shutil
     # Try creating world source before moving for validation, and then set path to new location if successful
     world_source = worlds.WorldSource(apworld_src, is_zip=True, relative=False)
-    
+
     # If a module with this name is already loaded, then we can't load it now.
     # TODO: We need to be able to unload a world module,
     # so the user can update a world without restarting the application.
     # TODO: If this is still present with lazy loading, add some way to tell if the source is actually loaded.
     found_already_loaded = False
     for loaded_world in worlds.world_sources:
-        loaded_name = pathlib.Path(loaded_world.path).stem
-        if apworld_path.stem == loaded_name:
+        if world_source.name == loaded_world.name:
             found_already_loaded = True
             break
 
@@ -177,7 +176,7 @@ def _install_apworld(apworld_src: str = "") -> Optional[tuple[pathlib.Path, path
     world_source.path = str(apworld_path)
 
     if found_already_loaded and is_kivy_running():
-        raise Exception(f"Installed APWorld successfully, but '{apworld_path.stem}' is already loaded, "
+        raise Exception(f"Installed APWorld successfully, but '{world_source.name}' is already loaded, "
                         "so a Launcher restart is required to use the new installation.")
     if not world_source.load():
         raise Exception(f"World was installed, but failed to load. See the Launcher log for details.")
