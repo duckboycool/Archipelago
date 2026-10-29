@@ -203,15 +203,19 @@ class APWorldContainer(APContainer):
     maximum_ap_version: "Version | None" = None
 
     def validate_zip(self, zip_file: zipfile.ZipFile) -> None:
+        directories = [f.name for f in zipfile.Path(zip_file).iterdir() if f.is_dir()]
+        if len(directories) == 1:
+            module_name = directories[0]
+        else:
+            raise Exception(f"The world source {self.path} appears invalid/damaged. (expected a single directory)")
+
         try:
-            directories = [f.name for f in zipfile.Path(zip_file).iterdir() if f.is_dir()]
-            if len(directories) == 1:
-                module_name = directories[0]
-            else:
-                raise Exception(f"The world source {self.path} appears invalid/damaged. (expected a single directory)")
-            zip_file.open(module_name + "/__init__.py")
-        except KeyError as e:
-            raise Exception(f"The world source {self.path} appears to not be an APWorld. (missing __init__.py)") from e
+            zip_file.open(module_name + "/__init__.pyc")
+        except KeyError:
+            try:
+                zip_file.open(module_name + "/__init__.py")
+            except KeyError:
+                raise Exception(f"The world source {self.path} appears to not be an APWorld. (missing __init__.py)")
 
     def read_contents(self, opened_zipfile: zipfile.ZipFile) -> Dict[str, Any]:
         from Utils import tuplize_version

@@ -139,7 +139,8 @@ class WorldSource:
             start = time.perf_counter()
 
             if self.is_zip:
-                # will be redundant if added earlier during initial reading, but means standalone load calls will work
+                # May be redundant if added earlier during initial reading, but means standalone load calls will work,
+                # and also fixes the source used if a previous one was invalid
                 add_apworld_spec(self, APWorldContainer(self.resolved_path))
             importlib.import_module(f".{self.name}", "worlds")
             if self.game in AutoWorldRegister.world_types:
@@ -203,6 +204,18 @@ for folder in (folder for folder in (user_folder, local_folder) if folder):
                 except Exception as e:
                     logging.warning(f"Not adding {entry.name} to world sources due to error creating it")
                     logging.warning(e)
+
+
+# Try adding apworld specs so apworlds can be imported inside of other worlds.
+# If there's a source that can't load, then this may point to it and differ from what would actually get loaded,
+# so this means users may have to clean out invalid worlds if another imports them.
+world_sources.sort(key=lambda source: source.version, reverse=True)
+world_sources.sort(key=lambda source: source.is_zip)  # ensure folder worlds are loaded first
+earlier_worlds = set()
+for source in world_sources:
+    if source.is_zip:
+        add_apworld_spec(source, APWorldContainer(source.resolved_path))
+    earlier_worlds.add(source.name)
 
 
 run_main_load = False
