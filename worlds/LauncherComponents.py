@@ -178,8 +178,10 @@ def _install_apworld(apworld_src: str = "") -> Optional[tuple[pathlib.Path, path
     if found_already_loaded and is_kivy_running():
         raise Exception(f"Installed APWorld successfully, but '{world_source.name}' is already loaded, "
                         "so a Launcher restart is required to use the new installation.")
-    if not world_source.load():
-        raise Exception(f"World was installed, but failed to load. See the Launcher log for details.")
+
+    success, message =  world_source.load()
+    if not success:
+        raise Exception(f"World was installed, but failed to load:\n{message}\nSee the Launcher log for full details.")
 
     return apworld_path, target
 

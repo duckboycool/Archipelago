@@ -134,10 +134,22 @@ class WorldSource:
             return os.path.join(local_folder, self.path)
         return self.path
 
-    def load(self) -> bool:
+    def load(self) -> tuple[bool, str]:
         try:
             start = time.perf_counter()
 
+            if self.min_ap_version > version_tuple:
+                raise ValueError(
+                    f"Did not load {source.resolved_path} "
+                    f"as its minimum core version {source.min_ap_version} "
+                    f"is higher than current core version {version_tuple}."
+                )
+            elif self.max_ap_version < version_tuple:
+                raise ValueError(
+                    f"Did not load {source.resolved_path} "
+                    f"as its maximum core version {source.max_ap_version} "
+                    f"is lower than current core version {version_tuple}."
+                )
             if self.is_zip:
                 # May be redundant if added earlier during initial reading, but means standalone load calls will work,
                 # and also fixes the source used if a previous one was invalid
@@ -148,9 +160,9 @@ class WorldSource:
                 AutoWorldRegister.world_types[self.game].manifest = self.manifest
 
             self.time_taken = time.perf_counter() - start
-            return True
+            return True, ""
 
-        except Exception:
+        except Exception as e:
             # A single world failing can still mean enough is working for the user, log and carry on
             import traceback
             import io
@@ -161,7 +173,7 @@ class WorldSource:
             reason = file_like.read()
             logging.exception(reason)
             failed_world_loads[os.path.basename(self.path).rsplit(".", 1)[0]] = reason
-            return False
+            return False, str(e)
 
     @property
     def name(self) -> str:
@@ -229,27 +241,8 @@ def load_world_sources() -> None:
     world_sources.sort(key=lambda source: source.version, reverse=True)
     world_sources.sort(key=lambda source: source.is_zip)  # ensure folder worlds are loaded first
 
-    def fail_world(game_name: str | None, reason: str, add_as_failed_to_load: bool = True) -> None:
-        if add_as_failed_to_load and game_name:
-            failed_world_loads[game_name] = reason
-        logging.warning(reason)
-
     for source in world_sources:
-        if source.min_ap_version > version_tuple:
-            fail_world(source.game,
-                        f"Did not load {source.resolved_path} "
-                        f"as its minimum core version {source.min_ap_version} "
-                        f"is higher than current core version {version_tuple}.")
-        elif source.max_ap_version < version_tuple:
-            fail_world(source.game,
-                        f"Did not load {source.resolved_path} "
-                        f"as its maximum core version {source.max_ap_version} "
-                        f"is lower than current core version {version_tuple}.")
-        elif source.game and source.game in AutoWorldRegister.world_types:
-            fail_world(source.game,
-                        f"Did not load {source.resolved_path} "
-                        f"as its game {source.game} is already loaded.",
-                        add_as_failed_to_load=False)
-        else:
-            logger.info(source.name)
-            source.load()
+        if source.game and source.game in AutoWorldRegister.world_types:
+            logging.warning(f"Did not load {source.resolved_path} as its game {source.game} is already loaded.")
+        logger.info(source.name)
+        source.load()
