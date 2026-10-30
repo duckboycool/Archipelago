@@ -91,6 +91,11 @@ Information on Archipelago's shared cache between that can be re-used between di
 
 List of information about common questions or issues hit during world development.
 
+### [BizHawk Client Docs](/worlds/_bizhawk/README.md)
+
+General information on using BizHawkClient, which is based on CommonClient and includes functionality for interacting
+with a game being played through the emulator BizHawk.
+
 ### [Tests](/docs/tests.md)
 
 Setup information for running Archipelago's unittests and specification for creating world-specific tests.
@@ -108,6 +113,10 @@ of entrance randomization features between different worlds.
 
 Information about running or interfacing with the Archipelago WebHost, which runs the website (for instance, the main
 [archipelago.gg](https://archipelago.gg) host).
+
+### [WebHostLib Info](/WebHostLib/README.md)
+
+License info for the assets used by the WebHost and guidelines for contributions to it.
 
 ### [WebHost Configuration Sample](/docs/webhost%20configuration%20sample.yaml)
 
